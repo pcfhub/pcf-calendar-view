@@ -1,7 +1,5 @@
 import * as React from 'react';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
-// PROBE 0.0.1 — remove with CalendarView/probe.ts before the real build.
-import { installProbe } from './probe';
 import { CalendarViewControl, IProps, Metadata, Row } from './components/CalendarViewControl';
 import {
     Behavior,
@@ -193,11 +191,6 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const dataset = context.parameters.records;
 
         this.applyPageSize(context, dataset);
-
-        // PROBE 0.0.1
-        if ((dataset.sortedRecordIds ?? []).length > 0) {
-            installProbe(context, dataset);
-        }
 
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
