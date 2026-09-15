@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+
+  "slug": "pcf-calendar-view",
+  "name": "Calendar View",
+  "tagline": "A Dataverse view as a month or week calendar, by a date column — drag to reschedule, click a day to create.",
+  "category": "data",
+  "tags": ["react", "dataset", "calendar", "month", "week", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
+
+  "control": {
+    "namespace": "PCFHub",
+    "constructor": "CalendarView",
+    "type": "dataset",
+    "framework": "react_virtual",
+    "manifestPath": "CalendarView/ControlManifest.Input.xml"
+  },
+
+  "links": {
+    "homepage": "https://github.com/pcfhub/pcf-calendar-view",
+    "support": "https://github.com/pcfhub/pcf-calendar-view/issues",
+    "license": "MIT"
+  },
+
+  "docs": {
+    "path": "docs"
+  },
+
+  "media": {
+    "logo": "media/logo.png",
+    "screenshots": ["media/screenshot-month.png", "media/screenshot-week.png"]
+  },
+
+  "demo": {
+    "fidelity": "limited",
+    "bundle": "out/controls/CalendarView/bundle.js",
+    "styles": ["out/controls/CalendarView/css/CalendarView.css"],
+    "datasetFixture": "demo/records.json",
+    "limitations": [
+      "The calendar opens on September 2026, not on today. The fixture’s events are fixed dates and the harness cannot follow the clock, so the presets set the Opens on property; on a form that property is empty and the calendar opens on the user’s today.",
+      "Times are shown in your browser’s time zone. On a form the control asks userSettings.getTimeZoneOffsetMinutes() for the Dataverse user’s zone and places each event by that, which is the day the user means; the harness publishes no user settings, so the browser’s zone stands in.",
+      "Events are placed by the shape of their value rather than by the column’s behaviour. On a model-driven form the control reads each date column’s Behavior through getEntityMetadata — a User Local instant is placed in the user’s zone, a Date Only day on its day everywhere — and the harness has no metadata to read, so a value at UTC midnight is taken as a whole day and anything else as an instant.",
+      "Events carry no colour. The Kind column is bound as the colour role, and on a form each event takes its option’s colour from the option set’s metadata; the harness has no option set, so the label shows as a badge in the week view and the edge stays brand blue.",
+      "Stepping to another month does not fetch it. On a form the control sends the visible range to the server as a filter — start ≤ last day AND (end ≥ first day OR end is empty) — and refreshes; the harness discards filters, so every fixture record is loaded at once and the other months are simply empty.",
+      "Dragging an event changes nothing in Dataverse. The control writes through the record where the platform allows it and through webAPI.updateRecord() otherwise, and the harness mocks both — the event still moves, because the control places it optimistically and only retires that override once refreshed data agrees. The movedRecordId and selectedDate outputs update either way.",
+      "There is no + on the days. Creating opens the table’s quick create form through navigation.openForm with the day passed as a form parameter, and the harness has no forms to open, so the button is hidden here the way it is in a canvas app.",
+      "Load more never appears. The harness puts every fixture record on a single page and reports hasNextPage as false; on a form a month with more events than the page size offers the rest.",
+      "Clicking an event calls dataset.openDatasetItem(), which the harness logs as a mock call. The openedRecordId output still updates."
+    ],
+    "presets": [
+      {
+        "slug": "default",
+        "name": "Month",
+        "description": "September 2026 as a month grid: a three-day offsite, an evening dinner, a whole-day release, and a title long enough to truncate.",
+        "props": {
+          "defaultView": "month",
+          "weekStart": "auto",
+          "initialDate": "2026-09-14",
+          "allowMove": true,
+          "allowCreate": true,
+          "openOnEventClick": true,
+          "showTimes": true,
+          "pageSize": 50
+        },
+        "isDefault": true
+      },
+      {
+        "slug": "week",
+        "name": "Week",
+        "description": "The week of 14 September, where each event shows its time and its kind.",
+        "props": {
+          "defaultView": "week",
+          "weekStart": "monday",
+          "initialDate": "2026-09-14",
+          "allowMove": true,
+          "allowCreate": true,
+          "openOnEventClick": true,
+          "showTimes": true,
+          "pageSize": 50
+        }
+      },
+      {
+        "slug": "read-only",
+        "name": "Read-only, no times",
+        "description": "The shape for a dashboard: nothing moves, nothing opens, and a Date and Time column reads as days.",
+        "props": {
+          "defaultView": "month",
+          "weekStart": "auto",
+          "initialDate": "2026-09-14",
+          "allowMove": false,
+          "allowCreate": false,
+          "openOnEventClick": false,
+          "showTimes": false,
+          "pageSize": 50
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<!--
+  The calendar, rendered in a real browser, for looking at.
+
+      npm run build
+      npm run harness        then open http://localhost:8080/dev/preview.html
+
+  ---
+
+  **Why this exists alongside `smoke.js`.** That file loads the same bundle in
+  Node and asserts what the control *decided* — which day an event landed on,
+  what `setValue` was handed, what the window filter asked for. This one
+  renders it, and the two answer different questions: whether a chip's time
+  and title share a line, whether a multi-day event reads as continuing,
+  whether five rows of days fit the height a form section gives. None of that
+  is visible in a props object.
+
+  **And why it is a browser page rather than `react-dom/server`.** The month
+  on screen is React state, the window filter is sent from an effect, and the
+  column metadata arrives through another. None of that runs under the server
+  renderer, so a server-rendered picture can only show the calendar before
+  anything happened. Here, effects run, `?view=week` switches, and the "+"
+  and the move menu can be pressed.
+
+  **The Fluent components are stubbed** by `fluent-stub.js`, and the stub does
+  *less* than the real thing, which is the safe direction — its header lists
+  exactly how. `npm start` stays the authority for anything that depends on
+  real Fluent.
+
+  Query parameters, all optional:
+
+    ?fixture=demo          render demo/records.json instead of dev/fixture.js
+    ?view=week             open in the week view
+    ?date=2026-09-14       the day to open on (default: today)
+    ?zone=-300             the user's zone, minutes ahead of UTC (default: the browser's)
+    ?canvas=1              a canvas host: no webAPI, no utils, no forms
+    ?create=0              hide the "+" (manifest default is on)
+    ?move=0                hide the move affordances
+    ?width=700             the width the host allocates (default: the window's)
+    ?dark=1                a host publishing a dark theme (the stub's small token set)
+-->
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Calendar View — preview</title>
+    <link rel="stylesheet" href="../out/controls/CalendarView/css/CalendarView.css" />
+    <style>
+        /*
+          Nothing here styles the control. It stands in for the host page, so
+          the picture has the padding and ground a form would give it — and so
+          the screenshot has a margin rather than bleeding to the edge.
+        */
+        body { margin: 0; padding: 16px; background: #ffffff; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body.dark { background: #292929; }
+        #root { max-width: 100%; }
+        /* A headless screenshot is taken at t=0 of any transition. */
+        * { transition: none !important; }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="../node_modules/react/umd/react.development.js"></script>
+<script src="../node_modules/react-dom/umd/react-dom.development.js"></script>
+<script src="fixture.js"></script>
+<script src="host.js"></script>
+<script>
+    window.__harnessReact = window.React;
+</script>
+<script src="fluent-stub.js"></script>
+
+<script>
+    /*
+      The platform globals, under the names the bundle asks for.
+
+      `pcf-scripts` maps a `<platform-library>` version onto the build it
+      supports, so Fluent 9.46.2 arrives as `FluentUIReactv940`. If a version
+      bump ever changes those names this page fails loudly on the next line
+      rather than rendering an empty box — which is what `smoke.js` avoids by
+      reading the names out of the bundle, and what is not worth the machinery
+      here.
+    */
+    window.Reactv16 = window.React;
+    window.FluentUIReactv940 = window.__harnessFluent;
+
+    // Before the bundle's <script>: it registers itself the moment it loads.
+    var registration = window.__pcfHost.captureRegistration(window);
+</script>
+
+<script src="../out/controls/CalendarView/bundle.js"></script>
+
+<script>
+    (async function () {
+        'use strict';
+
+        var host = window.__pcfHost;
+        var fixture = window.__pcfFixture;
+        var params = new URLSearchParams(window.location.search);
+        var root = document.getElementById('root');
+
+        if (typeof registration.ctor !== 'function') {
+            root.textContent = 'The bundle registered no control. Run npm run build.';
+
+            return;
+        }
+
+        if (params.get('fixture') === 'demo') {
+            var response = await fetch('../demo/records.json');
+
+            fixture = await response.json();
+        }
+
+        var number = function (name) {
+            var raw = params.get(name);
+
+            return raw === null || raw === '' ? null : Number(raw);
+        };
+
+        var dark = params.get('dark') === '1';
+
+        if (dark) {
+            document.body.classList.add('dark');
+        }
+
+        var handle = host.createHost(fixture, {
+            host: params.get('canvas') === '1' ? 'canvas' : 'model-driven',
+            width: number('width') !== null ? number('width') : root.clientWidth,
+            pageSize: 50,
+            dark: dark,
+            tokenTheme: dark ? window.__harnessFluent.webDarkTheme : undefined,
+            userTimeZoneOffset: number('zone'),
+            inputs: {
+                defaultView: params.get('view') === 'week' ? 'week' : 'month',
+                weekStart: 'auto',
+                initialDate: params.get('date'),
+                allowMove: params.get('move') !== '0',
+                allowCreate: params.get('create') !== '0',
+                openOnEventClick: true,
+                showTimes: true,
+            },
+        });
+
+        var instance = new registration.ctor();
+
+        instance.init(handle.context, function () {
+            // Outputs changed; a form would re-render. So does this page.
+            render();
+        }, {}, root);
+
+        function render() {
+            var driven = host.drive(instance, handle, 10);
+
+            ReactDOM.render(driven.element, root);
+        }
+
+        // The rig's dataset re-reads on a refresh, which is asynchronous —
+        // the window filter lands on the second pass.
+        render();
+        setTimeout(render, 50);
+        setTimeout(render, 300);
+    })();
+</script>
+</body>
+</html>

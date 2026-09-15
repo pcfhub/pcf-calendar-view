@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <!--
+    The version here is what the Power Platform upgrades on, and the release
+    workflow refuses to publish a tag that disagrees with it. Bump this in the
+    same commit as the tag.
+  -->
+  <control namespace="PCFHub"
+           constructor="CalendarView"
+           version="0.0.1"
+           display-name-key="CalendarView_Name"
+           description-key="CalendarView_Desc"
+           control-type="virtual">
+
+    <external-service-usage enabled="false" />
+
+    <!--
+      Roles, deliberately — the same decision as pcf-kanban-board and the
+      opposite of pcf-data-table. A calendar assigns meaning to specific
+      columns: an event *starts* somewhere, may *end* somewhere, has a
+      headline, and optionally a colour. It does not render "whatever the
+      view supplies", so there is nothing to read off dataset.columns
+      generically.
+
+      Four roles, fixed permanently. Roles can be added later; they cannot be
+      removed without breaking every maker who bound one.
+
+      Found on the column by `alias`, read off the record by `name`. Getting
+      that backwards renders nothing against a real view while passing a
+      fixture whose alias and name are the same string — which is why
+      dev/fixture.js uses realistic, different values.
+    -->
+    <data-set name="records" display-name-key="Records_DataSet_Name">
+      <!--
+        When the event starts, and the column a drag writes.
+
+        `of-type-group` rather than `of-type`, because a calendar has to take
+        either date format: a Date Only column places its event as a whole
+        day, a Date and Time column at a time. The group restricts binding by
+        the column's *format* — its behaviour (User Local, Date Only, Time
+        Zone Independent) is a separate property the picker cannot see, and
+        is read from metadata at runtime. See index.ts.
+      -->
+      <property-set name="startField"
+                    display-name-key="StartField_Name"
+                    description-key="StartField_Desc"
+                    of-type-group="dates"
+                    usage="bound"
+                    required="true" />
+
+      <!--
+        When it ends, so a multi-day event spans its days and a timed one
+        shows a duration. Optional: a view with one date column is a calendar
+        of single-day events, and a moved event keeps its length when this is
+        bound because the end is shifted with the start.
+      -->
+      <property-set name="endField"
+                    display-name-key="EndField_Name"
+                    description-key="EndField_Desc"
+                    of-type-group="dates"
+                    usage="bound"
+                    required="false" />
+
+      <property-set name="titleField"
+                    display-name-key="TitleField_Name"
+                    description-key="TitleField_Desc"
+                    of-type="SingleLine.Text"
+                    usage="bound"
+                    required="true" />
+
+      <!--
+        A choice column whose option colours colour the events. The colour is
+        read from the option set's metadata — `attributeDescriptor.OptionSet[]
+        .Color`, measured on pcf-kanban-board's lane column — and so exists
+        only where metadata can be read: a model-driven app. Elsewhere the
+        events carry the option's label as a badge and no colour.
+      -->
+      <property-set name="colorField"
+                    display-name-key="ColorField_Name"
+                    description-key="ColorField_Desc"
+                    of-type="OptionSet"
+                    usage="bound"
+                    required="false" />
+    </data-set>
+
+    <type-group name="dates">
+      <type>DateAndTime.DateOnly</type>
+      <type>DateAndTime.DateAndTime</type>
+    </type-group>
+
+    <!--
+      No `cds-data-set-options`, following the template's rule: a control with
+      fixed roles wants the subgrid chrome off, because its layout does not
+      survive the maker picking a different view, and the command bar would
+      have nothing to act on — this control never calls setSelectedRecordIds().
+    -->
+
+    <!--
+      Which view opens first. The user can switch at runtime; this is only the
+      one they land on.
+    -->
+    <property name="defaultView"
+              display-name-key="DefaultView_Name"
+              description-key="DefaultView_Desc"
+              of-type="Enum"
+              usage="input"
+              required="false"
+              default-value="month">
+      <value name="month" display-name-key="View_Month">month</value>
+      <value name="week" display-name-key="View_Week">week</value>
+    </property>
+
+    <!--
+      `auto` reads `userSettings.dateFormattingInfo.firstDayOfWeek`, which is
+      the user's own personal-options setting and the right answer almost
+      always. The other two are for a calendar that has to agree with a
+      printed one whatever the reader's settings say.
+
+      An Enum cannot be unset, so `auto` is how "the host decides" is spelled
+      here — the same reason pageSize below carries no default.
+    -->
+    <property name="weekStart"
+              display-name-key="WeekStart_Name"
+              description-key="WeekStart_Desc"
+              of-type="Enum"
+              usage="input"
+              required="false"
+              default-value="auto">
+      <value name="auto" display-name-key="WeekStart_Auto">auto</value>
+      <value name="sunday" display-name-key="WeekStart_Sunday">sunday</value>
+      <value name="monday" display-name-key="WeekStart_Monday">monday</value>
+    </property>
+
+    <!--
+      The day the calendar opens on, as yyyy-MM-dd. Empty is today, which is
+      right on a form; a fixed day is for a calendar of a known period — a
+      conference, a fiscal quarter — and for a demo whose fixture cannot
+      follow the clock. The user can still navigate away from it.
+    -->
+    <property name="initialDate"
+              display-name-key="InitialDate_Name"
+              description-key="InitialDate_Desc"
+              of-type="SingleLine.Text"
+              usage="input"
+              required="false" />
+
+    <!--
+      Whether an event can be dragged to another day — and moved by keyboard
+      from its menu, which is the same write. Off makes the calendar
+      read-only whatever the host allows; on still needs a host that can
+      write, and the affordances are hidden where none can.
+    -->
+    <property name="allowMove"
+              display-name-key="AllowMove_Name"
+              description-key="AllowMove_Desc"
+              of-type="TwoOptions"
+              usage="input"
+              required="false"
+              default-value="true" />
+
+    <!--
+      The "+" on each day, which opens the table's quick create form with the
+      start column already set to that day — passed as a form parameter, the
+      second argument to navigation.openForm. Shown only where the host has
+      openForm at all: a model-driven app.
+    -->
+    <property name="allowCreate"
+              display-name-key="AllowCreate_Name"
+              description-key="AllowCreate_Desc"
+              of-type="TwoOptions"
+              usage="input"
+              required="false"
+              default-value="true" />
+
+    <property name="openOnEventClick"
+              display-name-key="OpenOnEventClick_Name"
+              description-key="OpenOnEventClick_Desc"
+              of-type="TwoOptions"
+              usage="input"
+              required="false"
+              default-value="true" />
+
+    <!--
+      Whether a timed event shows its start time in front of its title. Off
+      for a view whose column is Date and Time but whose times are noise —
+      a "created on" calendar.
+    -->
+    <property name="showTimes"
+              display-name-key="ShowTimes_Name"
+              description-key="ShowTimes_Desc"
+              of-type="TwoOptions"
+              usage="input"
+              required="false"
+              default-value="true" />
+
+    <!--
+      NO `default-value` HERE, AND THAT IS THE DECISION RATHER THAN AN OMISSION.
+
+      A `default-value` on an optional property is not a default, it is an
+      override: the platform hands the value down whether or not the maker
+      ever touched the property, so there is no unset state left to express.
+      `dataset.paging.pageSize` is the size the host is already retrieving
+      with, and unset, this control adopts it and never calls `setPageSize`.
+
+      A calendar loads more, it does not turn pages — so this is how many
+      events arrive per fetch, and a month with more shows a Load more.
+    -->
+    <property name="pageSize"
+              display-name-key="PageSize_Name"
+              description-key="PageSize_Desc"
+              of-type="Whole.None"
+              usage="input"
+              required="false" />
+
+    <!--
+      Four outputs, because a form reacts to each differently.
+
+      `selectedDate` is the day the user last clicked or moved to, as
+      `yyyy-MM-dd` — what a canvas app binds a gallery's filter to. The other
+      three are notified *before* the platform call they describe, so the
+      value is observable even on a host where the call does nothing.
+    -->
+    <property name="selectedDate"
+              display-name-key="SelectedDate_Name"
+              description-key="SelectedDate_Desc"
+              of-type="SingleLine.Text"
+              usage="output" />
+
+    <property name="movedRecordId"
+              display-name-key="MovedRecordId_Name"
+              description-key="MovedRecordId_Desc"
+              of-type="SingleLine.Text"
+              usage="output" />
+
+    <property name="openedRecordId"
+              display-name-key="OpenedRecordId_Name"
+              description-key="OpenedRecordId_Desc"
+              of-type="SingleLine.Text"
+              usage="output" />
+
+    <property name="createdRecordId"
+              display-name-key="CreatedRecordId_Name"
+              description-key="CreatedRecordId_Desc"
+              of-type="SingleLine.Text"
+              usage="output" />
+
+    <resources>
+      <code path="index.ts" order="1" />
+      <css path="css/CalendarView.css" order="1" />
+      <platform-library name="React" version="16.14.0" />
+      <platform-library name="Fluent" version="9.46.2" />
+      <resx path="strings/CalendarView.1033.resx" version="1.0.0" />
+      <resx path="strings/CalendarView.3082.resx" version="1.0.0" />
+      <resx path="strings/CalendarView.1036.resx" version="1.0.0" />
+      <resx path="strings/CalendarView.1031.resx" version="1.0.0" />
+      <resx path="strings/CalendarView.1041.resx" version="1.0.0" />
+    </resources>
+
+    <!--
+      Both optional, and both about the second route rather than the first.
+
+      A move goes through the record — setValue() then save(), which no
+      manifest entry has to declare — wherever record.isEditable() allows it,
+      and falls back to webAPI.updateRecord() where it does not. Utility is
+      for getEntityMetadata: the date column's Behavior, which decides whether
+      a value is a whole day or an instant, and the colour column's option
+      colours. Neither exists in canvas, and required="true" on a host
+      without the feature is a component that will not load — so both are
+      required="false" and index.ts feature-detects them. Without metadata
+      the behaviour is inferred from the value's shape (SPEC.md).
+    -->
+    <feature-usage>
+      <uses-feature name="WebAPI" required="false" />
+      <uses-feature name="Utility" required="false" />
+    </feature-usage>
+  </control>
+</manifest>

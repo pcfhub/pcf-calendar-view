@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Display names and descriptions for everything declared in
+    ControlManifest.Input.xml. PCFHub reads the manifest, so these strings are
+    what appear in the component's API reference on the hub as well as in the
+    maker's properties pane.
+
+    Copy this file to add a language — CalendarView.3082.resx for Spanish, and so
+    on — then list it under <resources> in the manifest.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+
+  
+  
+  <data name="CalendarView_Name" xml:space="preserve">
+    <value>Vista de calendario</value>
+  </data>
+  <data name="CalendarView_Desc" xml:space="preserve">
+    <value>Una vista de Dataverse como calendario mensual o semanal, según una columna de fecha.</value>
+  </data>
+  <data name="Records_DataSet_Name" xml:space="preserve">
+    <value>Registros</value>
+  </data>
+  <data name="StartField_Name" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="StartField_Desc" xml:space="preserve">
+    <value>La columna de fecha en la que empieza un evento. Una columna Solo fecha coloca días completos; una de Fecha y hora coloca horas. Mover un evento escribe esta columna.</value>
+  </data>
+  <data name="EndField_Name" xml:space="preserve">
+    <value>Fin</value>
+  </data>
+  <data name="EndField_Desc" xml:space="preserve">
+    <value>Opcional. La columna de fecha en la que termina un evento, para que abarque sus días. Se mueve junto con el inicio.</value>
+  </data>
+  <data name="TitleField_Name" xml:space="preserve">
+    <value>Título</value>
+  </data>
+  <data name="TitleField_Desc" xml:space="preserve">
+    <value>La columna de texto que se muestra en cada evento.</value>
+  </data>
+  <data name="ColorField_Name" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="ColorField_Desc" xml:space="preserve">
+    <value>Opcional. Una columna de opción cuyos colores colorean los eventos; su etiqueta se muestra como insignia en la vista semanal.</value>
+  </data>
+  <data name="DefaultView_Name" xml:space="preserve">
+    <value>Vista predeterminada</value>
+  </data>
+  <data name="DefaultView_Desc" xml:space="preserve">
+    <value>La vista con la que se abre el calendario. El usuario puede cambiarla en cualquier momento.</value>
+  </data>
+  <data name="View_Month" xml:space="preserve">
+    <value>Mes</value>
+  </data>
+  <data name="View_Week" xml:space="preserve">
+    <value>Semana</value>
+  </data>
+  <data name="WeekStart_Name" xml:space="preserve">
+    <value>La semana empieza el</value>
+  </data>
+  <data name="WeekStart_Desc" xml:space="preserve">
+    <value>Automático sigue las opciones personales del usuario. Elija domingo o lunes para fijarlo para todos.</value>
+  </data>
+  <data name="WeekStart_Auto" xml:space="preserve">
+    <value>Automático (configuración del usuario)</value>
+  </data>
+  <data name="WeekStart_Sunday" xml:space="preserve">
+    <value>Domingo</value>
+  </data>
+  <data name="WeekStart_Monday" xml:space="preserve">
+    <value>Lunes</value>
+  </data>
+  <data name="InitialDate_Name" xml:space="preserve">
+    <value>Se abre en</value>
+  </data>
+  <data name="InitialDate_Desc" xml:space="preserve">
+    <value>El día en que se abre el calendario, como aaaa-MM-dd. Déjelo vacío para hoy.</value>
+  </data>
+  <data name="AllowMove_Name" xml:space="preserve">
+    <value>Permitir mover</value>
+  </data>
+  <data name="AllowMove_Desc" xml:space="preserve">
+    <value>Si un evento se puede arrastrar, o mover desde su menú, a otro día. Requiere un host que pueda escribir.</value>
+  </data>
+  <data name="AllowCreate_Name" xml:space="preserve">
+    <value>Permitir crear</value>
+  </data>
+  <data name="AllowCreate_Desc" xml:space="preserve">
+    <value>Si cada día ofrece un + que abre el formulario de creación rápida con ese día rellenado. Solo aplicaciones basadas en modelo.</value>
+  </data>
+  <data name="OpenOnEventClick_Name" xml:space="preserve">
+    <value>Abrir al hacer clic</value>
+  </data>
+  <data name="OpenOnEventClick_Desc" xml:space="preserve">
+    <value>Si al hacer clic en un evento se abre su registro.</value>
+  </data>
+  <data name="ShowTimes_Name" xml:space="preserve">
+    <value>Mostrar horas</value>
+  </data>
+  <data name="ShowTimes_Desc" xml:space="preserve">
+    <value>Si un evento con hora muestra su hora de inicio delante del título.</value>
+  </data>
+  <data name="PageSize_Name" xml:space="preserve">
+    <value>Eventos por carga</value>
+  </data>
+  <data name="PageSize_Desc" xml:space="preserve">
+    <value>Cuántos eventos se cargan a la vez. Déjelo vacío para usar el tamaño de página del host. Un mes con más muestra Cargar más.</value>
+  </data>
+  <data name="SelectedDate_Name" xml:space="preserve">
+    <value>Fecha seleccionada</value>
+  </data>
+  <data name="SelectedDate_Desc" xml:space="preserve">
+    <value>El último día en el que se hizo clic o al que se movió, como aaaa-MM-dd.</value>
+  </data>
+  <data name="MovedRecordId_Name" xml:space="preserve">
+    <value>Registro movido</value>
+  </data>
+  <data name="MovedRecordId_Desc" xml:space="preserve">
+    <value>El id del último evento movido.</value>
+  </data>
+  <data name="OpenedRecordId_Name" xml:space="preserve">
+    <value>Registro abierto</value>
+  </data>
+  <data name="OpenedRecordId_Desc" xml:space="preserve">
+    <value>El id del último evento abierto.</value>
+  </data>
+  <data name="CreatedRecordId_Name" xml:space="preserve">
+    <value>Registro creado</value>
+  </data>
+  <data name="CreatedRecordId_Desc" xml:space="preserve">
+    <value>El id del último evento guardado por el formulario de creación rápida.</value>
+  </data>
+  <data name="CalendarView_Error" xml:space="preserve">
+    <value>No se pudieron cargar los registros.</value>
+  </data>
+  <data name="CalendarView_NoStart" xml:space="preserve">
+    <value>Enlace la propiedad Inicio a una columna de fecha para mostrar un calendario.</value>
+  </data>
+  <data name="CalendarView_NoTitle" xml:space="preserve">
+    <value>Enlace la propiedad Título a una columna de texto.</value>
+  </data>
+  <data name="CalendarView_Previous" xml:space="preserve">
+    <value>Anterior</value>
+  </data>
+  <data name="CalendarView_Next" xml:space="preserve">
+    <value>Siguiente</value>
+  </data>
+  <data name="CalendarView_Today" xml:space="preserve">
+    <value>Hoy</value>
+  </data>
+  <data name="CalendarView_ViewLabel" xml:space="preserve">
+    <value>Vista</value>
+  </data>
+  <data name="CalendarView_Loading" xml:space="preserve">
+    <value>Cargando…</value>
+  </data>
+  <data name="CalendarView_NoFilter" xml:space="preserve">
+    <value>Este host no puede filtrar por fecha, así que el calendario muestra los {0} registros que cargó la vista.</value>
+  </data>
+  <data name="CalendarView_MoreAvailable" xml:space="preserve">
+    <value>{0} cargados — hay más en este intervalo.</value>
+  </data>
+  <data name="CalendarView_LoadMore" xml:space="preserve">
+    <value>Cargar más</value>
+  </data>
+  <data name="CalendarView_EventCount" xml:space="preserve">
+    <value>{0} eventos</value>
+  </data>
+  <data name="CalendarView_AddEvent" xml:space="preserve">
+    <value>Agregar un evento el {0}</value>
+  </data>
+  <data name="CalendarView_MoveEvent" xml:space="preserve">
+    <value>Mover {0}</value>
+  </data>
+  <data name="CalendarView_MoveEarlierDay" xml:space="preserve">
+    <value>Un día antes</value>
+  </data>
+  <data name="CalendarView_MoveLaterDay" xml:space="preserve">
+    <value>Un día después</value>
+  </data>
+  <data name="CalendarView_MoveEarlierWeek" xml:space="preserve">
+    <value>Una semana antes</value>
+  </data>
+  <data name="CalendarView_MoveLaterWeek" xml:space="preserve">
+    <value>Una semana después</value>
+  </data>
+  <data name="CalendarView_Moving" xml:space="preserve">
+    <value>Moviendo…</value>
+  </data>
+  <data name="CalendarView_MoveFailed" xml:space="preserve">
+    <value>No se pudo mover {0}.</value>
+  </data>
+  <data name="CalendarView_ReadOnly" xml:space="preserve">
+    <value>Este host no puede escribir en el registro.</value>
+  </data>
+</root>

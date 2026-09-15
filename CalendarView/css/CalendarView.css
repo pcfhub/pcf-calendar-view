@@ -1,0 +1,417 @@
+/*
+  Every rule is scoped under .CalendarView.
+
+  A code component's CSS is loaded into the whole page, not into a shadow root,
+  so an unscoped `table { }` here restyles every grid on the host form.
+
+  The colours are Fluent design tokens, which FluentProvider emits as CSS custom
+  properties on its own wrapper — so the calendar picks up the host's theme
+  without importing a Fluent component for colour. The fallbacks after each
+  comma are what the control looks like if that ever stops being true.
+*/
+
+.CalendarView {
+    font-family: var(--fontFamilyBase, 'Segoe UI', system-ui, sans-serif);
+    font-size: var(--fontSizeBase300, 14px);
+    color: var(--colorNeutralForeground1, #242424);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacingVerticalS, 8px);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.CalendarView-message {
+    margin: 0;
+    padding: var(--spacingVerticalL, 16px);
+    color: var(--colorNeutralForeground3, #616161);
+}
+
+/*
+  A failed move is the one message that must not be missed: the event the user
+  just dragged has silently returned to its day, and without this the calendar
+  looks like it ignored them.
+*/
+.CalendarView-error {
+    margin: 0;
+    padding: var(--spacingVerticalS, 8px) var(--spacingHorizontalM, 12px);
+    color: var(--colorPaletteRedForeground1, #b10e1c);
+    background-color: var(--colorPaletteRedBackground1, #fdf3f4);
+    border-radius: var(--borderRadiusMedium, 4px);
+}
+
+.CalendarView-notice {
+    margin: 0;
+    color: var(--colorNeutralForeground3, #616161);
+    font-size: var(--fontSizeBase200, 12px);
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+.CalendarView-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacingHorizontalS, 8px);
+}
+
+.CalendarView-nav,
+.CalendarView-views {
+    display: flex;
+    align-items: center;
+    gap: var(--spacingHorizontalXS, 4px);
+}
+
+.CalendarView-heading {
+    flex: 1 1 auto;
+    margin: 0;
+    font-size: var(--fontSizeBase400, 16px);
+    font-weight: var(--fontWeightSemibold, 600);
+    line-height: var(--lineHeightBase400, 22px);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.CalendarView-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacingHorizontalS, 8px);
+}
+
+/* ------------------------------------------------------------------- grid */
+
+/*
+  A real <table>, because a calendar *is* a grid — seven columns whose header
+  is a weekday — and the semantics come free. table-layout: fixed is what
+  keeps the columns equal whatever an event title is; without it the column
+  with the longest title takes the width from the others.
+*/
+.CalendarView-grid {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    background-color: var(--colorNeutralBackground1, #ffffff);
+}
+
+.CalendarView-grid th {
+    padding: var(--spacingVerticalXS, 4px) var(--spacingHorizontalS, 8px);
+    font-size: var(--fontSizeBase200, 12px);
+    font-weight: var(--fontWeightSemibold, 600);
+    color: var(--colorNeutralForeground3, #616161);
+    text-align: start;
+    border-bottom: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+}
+
+.CalendarView-day {
+    vertical-align: top;
+    padding: var(--spacingVerticalXXS, 2px) var(--spacingHorizontalXXS, 2px);
+    border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    /*
+      A floor, not a height: a day with more events than fit grows the row,
+      which is the honest behaviour. The month view's rows share the height of
+      their tallest day, which a fixed six-row grid would spend on empty weeks.
+    */
+    min-height: 88px;
+    height: 88px;
+    transition: background-color 0.1s ease-out;
+}
+
+.CalendarView--week .CalendarView-day {
+    min-height: 240px;
+    height: 240px;
+}
+
+/* The days of the previous and next month that fill the first and last week. */
+.CalendarView-day.is-outside {
+    background-color: var(--colorNeutralBackground2, #fafafa);
+}
+
+.CalendarView-day.is-outside .CalendarView-dayNumber {
+    color: var(--colorNeutralForeground4, #707070);
+}
+
+.CalendarView-day.is-over {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+    outline: 2px dashed var(--colorBrandStroke1, #0f6cbd);
+    outline-offset: -2px;
+}
+
+.CalendarView-dayHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 24px;
+}
+
+/*
+  The day number is the one control on a day that is always there: a button
+  so it can be reached and pressed, drawn as text so the grid does not turn
+  into forty-two buttons. Today wears the brand disc a Fluent calendar uses.
+*/
+.CalendarView-dayNumber {
+    font: inherit;
+    font-size: var(--fontSizeBase200, 12px);
+    color: inherit;
+    background: none;
+    border: 0;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    cursor: pointer;
+    text-align: center;
+    line-height: 24px;
+}
+
+.CalendarView-dayNumber:hover {
+    background-color: var(--colorNeutralBackground1Hover, #f5f5f5);
+}
+
+.CalendarView-dayNumber:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2, #000000);
+    outline-offset: 1px;
+}
+
+.CalendarView-day.is-today .CalendarView-dayNumber {
+    color: var(--colorNeutralForegroundOnBrand, #ffffff);
+    background-color: var(--colorBrandBackground, #0f6cbd);
+    font-weight: var(--fontWeightSemibold, 600);
+}
+
+/* The "+" appears on hover and on focus, so a month is not a grid of pluses. */
+.CalendarView-dayAdd {
+    min-width: 24px;
+    height: 24px;
+    opacity: 0;
+}
+
+.CalendarView-day:hover .CalendarView-dayAdd,
+.CalendarView-dayAdd:focus-visible,
+.CalendarView-day:focus-within .CalendarView-dayAdd {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .CalendarView-dayAdd {
+        opacity: 1;
+    }
+}
+
+/* ----------------------------------------------------------------- events */
+
+.CalendarView-events {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/*
+  An event is a chip with a coloured leading edge — the option colour when the
+  colour role is bound and the option set carries one, brand otherwise. The
+  colour is a border, not a background, so an arbitrary option colour can
+  never make the title unreadable.
+*/
+.CalendarView-event {
+    display: flex;
+    align-items: center;
+    gap: var(--spacingHorizontalXXS, 2px);
+    min-width: 0;
+    padding-inline-start: var(--spacingHorizontalXS, 4px);
+    border-inline-start: 3px solid var(--colorBrandStroke1, #0f6cbd);
+    border-radius: var(--borderRadiusSmall, 2px);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+    font-size: var(--fontSizeBase200, 12px);
+    line-height: 20px;
+}
+
+.CalendarView-event[draggable='true'] {
+    cursor: grab;
+}
+
+.CalendarView-event.is-allDay {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
+/* A multi-day event on a day it did not start on: no left edge, so it reads as continuing. */
+.CalendarView-event.is-continued {
+    border-inline-start-color: transparent;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+}
+
+.CalendarView-event.is-continuing {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+}
+
+.CalendarView-event.is-moving {
+    opacity: 0.6;
+}
+
+.CalendarView-eventTitle {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: start;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button.CalendarView-eventTitle {
+    cursor: pointer;
+}
+
+button.CalendarView-eventTitle:hover {
+    text-decoration: underline;
+}
+
+button.CalendarView-eventTitle:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2, #000000);
+    outline-offset: -1px;
+}
+
+.CalendarView-eventTime {
+    white-space: nowrap;
+    color: var(--colorNeutralForeground3, #616161);
+    font-variant-numeric: tabular-nums;
+}
+
+.CalendarView-eventBadge {
+    flex: 0 0 auto;
+    padding: 0 var(--spacingHorizontalXS, 4px);
+    border-radius: var(--borderRadiusCircular, 9999px);
+    background-color: var(--colorNeutralBackground5, #ebebeb);
+    color: var(--colorNeutralForeground2, #424242);
+    font-size: var(--fontSizeBase100, 10px);
+    line-height: 16px;
+    white-space: nowrap;
+}
+
+/* The badge earns its width in a week column and not in a month cell, where the title needs every pixel. */
+.CalendarView--month .CalendarView-eventBadge {
+    display: none;
+}
+
+/*
+  A week column is taller than it is wide, so its chips stack: the time and
+  title on a line of their own, wrapping to a second, and the badge under
+  them. Side by side, the badge took the width and the title read "10…".
+*/
+.CalendarView--week .CalendarView-event {
+    flex-wrap: wrap;
+    padding-block: var(--spacingVerticalXXS, 2px);
+    line-height: 18px;
+}
+
+/*
+  Two lines, clamped by height rather than -webkit-line-clamp: the title is a
+  <button>, and Chrome lays a button's content out in its own anonymous box
+  where -webkit-box does not apply — the clamp then read as "break anywhere"
+  and split words in half. A height cap loses the ellipsis and keeps the words.
+*/
+.CalendarView--week .CalendarView-eventTitle {
+    flex-basis: calc(100% - 24px);
+    white-space: normal;
+    text-overflow: clip;
+    max-height: 36px;
+    overflow: hidden;
+}
+
+.CalendarView--week .CalendarView-eventBadge {
+    order: 3;
+    margin-inline-end: auto;
+}
+
+.CalendarView-eventMenu {
+    flex: 0 0 auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0;
+    opacity: 0;
+}
+
+.CalendarView-event:hover .CalendarView-eventMenu,
+.CalendarView-eventMenu:focus-visible,
+.CalendarView-event:focus-within .CalendarView-eventMenu {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .CalendarView-eventMenu {
+        opacity: 1;
+    }
+}
+
+.CalendarView-eventBusy {
+    flex: 0 0 auto;
+    color: var(--colorNeutralForeground3, #616161);
+    font-size: var(--fontSizeBase100, 10px);
+}
+
+/* --------------------------------------------------------------- narrow */
+
+/*
+  Under 560px — a phone, or a narrow form section — seven columns cannot each
+  hold a title. The grid keeps its seven columns and the events lose their
+  text, becoming dots the user taps a day to expand: the day-number button
+  still selects, and selectedDate is what a phone layout reads.
+*/
+@media (max-width: 560px) {
+    .CalendarView-day {
+        min-height: 56px;
+        height: 56px;
+    }
+
+    .CalendarView-events {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .CalendarView-event {
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        border-inline-start-width: 8px;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .CalendarView-eventTitle,
+    .CalendarView-eventMenu,
+    .CalendarView-eventBusy,
+    .CalendarView-eventBadge {
+        display: none;
+    }
+
+    .CalendarView-dayAdd {
+        display: none;
+    }
+}
+
+@media (forced-colors: active) {
+    .CalendarView-event {
+        border: 1px solid CanvasText;
+        border-inline-start-width: 3px;
+    }
+
+    .CalendarView-day.is-today .CalendarView-dayNumber {
+        outline: 2px solid Highlight;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .CalendarView-day {
+        transition: none;
+    }
+}

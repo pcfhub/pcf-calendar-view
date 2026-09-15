@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!--
+    Display names and descriptions for everything declared in
+    ControlManifest.Input.xml. PCFHub reads the manifest, so these strings are
+    what appear in the component's API reference on the hub as well as in the
+    maker's properties pane.
+
+    Copy this file to add a language — CalendarView.3082.resx for Spanish, and so
+    on — then list it under <resources> in the manifest.
+  -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+
+  
+  
+  <data name="CalendarView_Name" xml:space="preserve">
+    <value>カレンダー ビュー</value>
+  </data>
+  <data name="CalendarView_Desc" xml:space="preserve">
+    <value>日付列を基準に、Dataverse ビューを月または週のカレンダーとして表示します。</value>
+  </data>
+  <data name="Records_DataSet_Name" xml:space="preserve">
+    <value>レコード</value>
+  </data>
+  <data name="StartField_Name" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="StartField_Desc" xml:space="preserve">
+    <value>イベントの開始日を表す日付列。「日付のみ」列は終日として、「日付と時刻」列は時刻付きで配置されます。イベントを移動するとこの列に書き込まれます。</value>
+  </data>
+  <data name="EndField_Name" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="EndField_Desc" xml:space="preserve">
+    <value>省略可能。イベントの終了日を表す日付列。複数日にまたがって表示され、開始と一緒に移動します。</value>
+  </data>
+  <data name="TitleField_Name" xml:space="preserve">
+    <value>タイトル</value>
+  </data>
+  <data name="TitleField_Desc" xml:space="preserve">
+    <value>各イベントに表示するテキスト列。</value>
+  </data>
+  <data name="ColorField_Name" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="ColorField_Desc" xml:space="preserve">
+    <value>省略可能。選択肢列。その選択肢の色でイベントを色分けし、週ビューではラベルをバッジとして表示します。</value>
+  </data>
+  <data name="DefaultView_Name" xml:space="preserve">
+    <value>既定のビュー</value>
+  </data>
+  <data name="DefaultView_Desc" xml:space="preserve">
+    <value>カレンダーを開いたときのビュー。ユーザーはいつでも切り替えられます。</value>
+  </data>
+  <data name="View_Month" xml:space="preserve">
+    <value>月</value>
+  </data>
+  <data name="View_Week" xml:space="preserve">
+    <value>週</value>
+  </data>
+  <data name="WeekStart_Name" xml:space="preserve">
+    <value>週の開始日</value>
+  </data>
+  <data name="WeekStart_Desc" xml:space="preserve">
+    <value>「自動」はユーザーの個人設定に従います。全員に固定するには日曜日または月曜日を選択します。</value>
+  </data>
+  <data name="WeekStart_Auto" xml:space="preserve">
+    <value>自動 (ユーザー設定)</value>
+  </data>
+  <data name="WeekStart_Sunday" xml:space="preserve">
+    <value>日曜日</value>
+  </data>
+  <data name="WeekStart_Monday" xml:space="preserve">
+    <value>月曜日</value>
+  </data>
+  <data name="InitialDate_Name" xml:space="preserve">
+    <value>初期表示日</value>
+  </data>
+  <data name="InitialDate_Desc" xml:space="preserve">
+    <value>カレンダーを開いたときに表示する日 (yyyy-MM-dd 形式)。空のままにすると今日になります。</value>
+  </data>
+  <data name="AllowMove_Name" xml:space="preserve">
+    <value>移動を許可</value>
+  </data>
+  <data name="AllowMove_Desc" xml:space="preserve">
+    <value>イベントをドラッグまたはメニューから別の日へ移動できるかどうか。書き込み可能なホストが必要です。</value>
+  </data>
+  <data name="AllowCreate_Name" xml:space="preserve">
+    <value>作成を許可</value>
+  </data>
+  <data name="AllowCreate_Desc" xml:space="preserve">
+    <value>各日に「+」を表示し、その日が入力された簡易作成フォームを開くかどうか。モデル駆動型アプリのみ。</value>
+  </data>
+  <data name="OpenOnEventClick_Name" xml:space="preserve">
+    <value>クリックで開く</value>
+  </data>
+  <data name="OpenOnEventClick_Desc" xml:space="preserve">
+    <value>イベントをクリックしたときにレコードを開くかどうか。</value>
+  </data>
+  <data name="ShowTimes_Name" xml:space="preserve">
+    <value>時刻を表示</value>
+  </data>
+  <data name="ShowTimes_Desc" xml:space="preserve">
+    <value>時刻付きイベントのタイトルの前に開始時刻を表示するかどうか。</value>
+  </data>
+  <data name="PageSize_Name" xml:space="preserve">
+    <value>1 回の取得件数</value>
+  </data>
+  <data name="PageSize_Desc" xml:space="preserve">
+    <value>一度に読み込むイベント数。空のままにするとホストのページ サイズを使用します。それ以上ある月には「さらに読み込む」が表示されます。</value>
+  </data>
+  <data name="SelectedDate_Name" xml:space="preserve">
+    <value>選択した日付</value>
+  </data>
+  <data name="SelectedDate_Desc" xml:space="preserve">
+    <value>最後にクリックまたは移動先となった日 (yyyy-MM-dd 形式)。</value>
+  </data>
+  <data name="MovedRecordId_Name" xml:space="preserve">
+    <value>移動したレコード</value>
+  </data>
+  <data name="MovedRecordId_Desc" xml:space="preserve">
+    <value>最後に移動したイベントの ID。</value>
+  </data>
+  <data name="OpenedRecordId_Name" xml:space="preserve">
+    <value>開いたレコード</value>
+  </data>
+  <data name="OpenedRecordId_Desc" xml:space="preserve">
+    <value>最後に開いたイベントの ID。</value>
+  </data>
+  <data name="CreatedRecordId_Name" xml:space="preserve">
+    <value>作成したレコード</value>
+  </data>
+  <data name="CreatedRecordId_Desc" xml:space="preserve">
+    <value>簡易作成フォームで最後に保存したイベントの ID。</value>
+  </data>
+  <data name="CalendarView_Error" xml:space="preserve">
+    <value>レコードを読み込めませんでした。</value>
+  </data>
+  <data name="CalendarView_NoStart" xml:space="preserve">
+    <value>カレンダーを表示するには、「開始」プロパティを日付列にバインドしてください。</value>
+  </data>
+  <data name="CalendarView_NoTitle" xml:space="preserve">
+    <value>「タイトル」プロパティをテキスト列にバインドしてください。</value>
+  </data>
+  <data name="CalendarView_Previous" xml:space="preserve">
+    <value>前へ</value>
+  </data>
+  <data name="CalendarView_Next" xml:space="preserve">
+    <value>次へ</value>
+  </data>
+  <data name="CalendarView_Today" xml:space="preserve">
+    <value>今日</value>
+  </data>
+  <data name="CalendarView_ViewLabel" xml:space="preserve">
+    <value>ビュー</value>
+  </data>
+  <data name="CalendarView_Loading" xml:space="preserve">
+    <value>読み込んでいます…</value>
+  </data>
+  <data name="CalendarView_NoFilter" xml:space="preserve">
+    <value>このホストは日付でフィルターできないため、ビューが読み込んだ {0} 件のレコードを表示しています。</value>
+  </data>
+  <data name="CalendarView_MoreAvailable" xml:space="preserve">
+    <value>{0} 件を読み込み済み — この期間にはさらにあります。</value>
+  </data>
+  <data name="CalendarView_LoadMore" xml:space="preserve">
+    <value>さらに読み込む</value>
+  </data>
+  <data name="CalendarView_EventCount" xml:space="preserve">
+    <value>{0} 件のイベント</value>
+  </data>
+  <data name="CalendarView_AddEvent" xml:space="preserve">
+    <value>{0} にイベントを追加</value>
+  </data>
+  <data name="CalendarView_MoveEvent" xml:space="preserve">
+    <value>{0} を移動</value>
+  </data>
+  <data name="CalendarView_MoveEarlierDay" xml:space="preserve">
+    <value>1 日前へ</value>
+  </data>
+  <data name="CalendarView_MoveLaterDay" xml:space="preserve">
+    <value>1 日後へ</value>
+  </data>
+  <data name="CalendarView_MoveEarlierWeek" xml:space="preserve">
+    <value>1 週間前へ</value>
+  </data>
+  <data name="CalendarView_MoveLaterWeek" xml:space="preserve">
+    <value>1 週間後へ</value>
+  </data>
+  <data name="CalendarView_Moving" xml:space="preserve">
+    <value>移動しています…</value>
+  </data>
+  <data name="CalendarView_MoveFailed" xml:space="preserve">
+    <value>{0} を移動できませんでした。</value>
+  </data>
+  <data name="CalendarView_ReadOnly" xml:space="preserve">
+    <value>このホストはレコードに書き込めません。</value>
+  </data>
+</root>
