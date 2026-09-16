@@ -1,6 +1,6 @@
 {
   "name": "pcf-calendar-view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Dataverse view as a month or week calendar, by a date column.",
   "license": "MIT",
   "private": true,

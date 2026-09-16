@@ -107,6 +107,28 @@ export interface IProps {
 
 const NO_METADATA: Metadata = { startBehavior: 'unknown', endBehavior: 'unknown', colors: new Map() };
 
+/*
+ * Fluent's own 16-px path data — the platform's Fluent build ships no icon
+ * set, so the three glyphs a calendar needs are drawn here. Inline SVG rather
+ * than a text character: `‹` and `+` sit on the font's baseline, come out a
+ * different size in every font the host might set, and were visibly small and
+ * off-centre beside a real Button on a form. A path scales with the button
+ * and follows `currentColor`.
+ */
+const ICONS = {
+    chevronLeft: 'M10.35 3.15a.5.5 0 0 1 0 .7L6.21 8l4.14 4.15a.5.5 0 0 1-.7.7l-4.5-4.5a.5.5 0 0 1 0-.7l4.5-4.5a.5.5 0 0 1 .7 0Z',
+    chevronRight: 'M5.65 3.15a.5.5 0 0 0 0 .7L9.79 8l-4.14 4.15a.5.5 0 0 0 .7.7l4.5-4.5a.5.5 0 0 0 0-.7l-4.5-4.5a.5.5 0 0 0-.7 0Z',
+    add: 'M8 2.5a.5.5 0 0 1 .5.5v4.5H13a.5.5 0 0 1 0 1H8.5V13a.5.5 0 0 1-1 0V8.5H3a.5.5 0 0 1 0-1h4.5V3a.5.5 0 0 1 .5-.5Z',
+};
+
+function Icon({ path, size }: { path: string; size: number }): React.ReactElement {
+    return (
+        <svg className="CalendarView-icon" width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+            <path d={path} fill="currentColor" />
+        </svg>
+    );
+}
+
 /**
  * The columns' metadata, once it arrives.
  *
@@ -329,14 +351,14 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
 
             <div className="CalendarView-toolbar">
                 <div className="CalendarView-nav">
-                    <Button appearance="subtle" size="small" aria-label={getString('CalendarView_Previous')} disabled={props.disabled} onClick={(): void => step(-1)}>
-                        {props.isRTL ? '›' : '‹'}
+                    <Button appearance="subtle" size="small" className="CalendarView-navArrow" aria-label={getString('CalendarView_Previous')} disabled={props.disabled} onClick={(): void => step(-1)}>
+                        <Icon path={props.isRTL ? ICONS.chevronRight : ICONS.chevronLeft} size={16} />
                     </Button>
                     <Button appearance="secondary" size="small" disabled={props.disabled} onClick={goToday}>
                         {getString('CalendarView_Today')}
                     </Button>
-                    <Button appearance="subtle" size="small" aria-label={getString('CalendarView_Next')} disabled={props.disabled} onClick={(): void => step(1)}>
-                        {props.isRTL ? '‹' : '›'}
+                    <Button appearance="subtle" size="small" className="CalendarView-navArrow" aria-label={getString('CalendarView_Next')} disabled={props.disabled} onClick={(): void => step(1)}>
+                        <Icon path={props.isRTL ? ICONS.chevronLeft : ICONS.chevronRight} size={16} />
                     </Button>
                 </div>
 
@@ -493,7 +515,7 @@ function DayCell(props: IDayProps): React.ReactElement {
                         aria-label={getString('CalendarView_AddEvent').replace('{0}', label)}
                         onClick={(): void => props.onCreate(day)}
                     >
-                        +
+                        <Icon path={ICONS.add} size={20} />
                     </Button>
                 )}
             </div>

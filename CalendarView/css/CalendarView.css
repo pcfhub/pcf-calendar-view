@@ -63,6 +63,23 @@
     gap: var(--spacingHorizontalXS, 4px);
 }
 
+/*
+  The arrows are the same box as the Today button between them — a small
+  Fluent button is 24px tall — and the chevron is an SVG that centres itself.
+  A bare `‹` character sat on the baseline and read as a smaller, higher
+  button than the one beside it.
+*/
+.CalendarView-navArrow {
+    min-width: 32px;
+    height: 24px;
+    padding: 0;
+}
+
+.CalendarView-icon {
+    display: block;
+    flex: 0 0 auto;
+}
+
 .CalendarView-heading {
     flex: 1 1 auto;
     margin: 0;
@@ -185,6 +202,7 @@
 .CalendarView-dayAdd {
     min-width: 24px;
     height: 24px;
+    padding: 0;
     opacity: 0;
 }
 
