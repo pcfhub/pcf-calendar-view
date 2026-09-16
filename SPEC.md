@@ -18,6 +18,51 @@ the real build) logs passively from `updateView` and exposes
 | Q3 | Does a window filter **narrow the view's own filter or replace it**? Bind the calendar to a view that excludes a known record and call `probe.window` over its date; count whether it appears. | If it replaces: the control cannot be bound to a filtered view honestly, and `docs/model-driven.md` says the view's filter is lost while a window is applied. |
 | Q4 | Does `webAPI.updateRecord` accept `"yyyy-MM-dd"` for a **Date Only** column and an ISO instant for a **User Local** one, and read back as the day/instant written? `probe.moveViaApi(id, days)` forces the API route. | The API route sends whichever shape read back right; if neither, moves are record-route only and a refused `isEditable` becomes a refused move. |
 
+### Measured — the passive half, 16 September 2026
+
+On the Accounts form, a `cll_event` subgrid (page size 4, 12 rows), the
+0.0.1 probe's passive log, before any question was asked:
+
+- **The write half is there**: `setValue`, `save` and `isEditable` are all
+  functions on a dataset record. Same as `pcf-data-table` and Kanban saw.
+- **`getValue` on `cll_starts` is the ISO instant** —
+  `"2026-10-03T05:00:00.000Z"` shown as `10/3/2026 12:00 AM`, so the user's
+  zone is UTC−5 and the control's placement rule is the right one. The end
+  came back `2026-10-04T04:30:00.000Z` / `11:30 PM`.
+- **`getTimeZoneOffsetMinutes(new Date())` answered `-300` and the bare
+  call `-360`** — the quirk the range picker measured, reproduced on a
+  second tenant, and the rig's hour-off model is right. **And the browser's
+  own offset was `-360`**: the machine (Mexico City, no DST) is an hour
+  from the Dataverse user's setting (a DST zone at −5 in September). That
+  is the *browser ≠ user zone* state under **Not verified — beyond the
+  probe**, live on the test form — see the walkthrough note below.
+- **The datetime metadata node**: `Behavior: 1`, `Format: "dateandtime"`,
+  `AttributeType: 2`, **`AttributeTypeName: "datetime"`** (lower-case — the
+  rig said `DateTimeType`, the SDK's spelling, and is corrected). The node's
+  own keys are all private (`_attributeType`, `_logicalName` …) with the
+  public names as getters, so `Object.keys` sees none of them; the
+  `attributeDescriptor` underneath carries `Behavior: 1` and
+  `Format: "datetime"` — note the descriptor spells the format
+  differently from the node.
+- **`Color` on the descriptor array, three options with colours** —
+  `#1a8bed`, `#bfed18`, `#ea1cfc` — as Kanban measured. The first record
+  carried `cll_kind = "4"`, a value the descriptor did not list; the control
+  shows such an event with the brand edge and the label as a badge, which is
+  the designed fallback, but *why* the option is missing from the array is
+  worth a look (added after publish? hidden?).
+- **Paging and context**: `pageSize 4`, `totalResultCount 12`,
+  `hasNextPage true` — the *Load more* path is live on this form;
+  `contextInfo` is the parent account, unbraced; `filtering.setFilter`,
+  `navigation.openForm`, `webAPI` and `utils` all present.
+
+**Walkthrough note on the zone gap.** With the browser at −360 and the user
+at −300, a move through `setValue` writes a `Date` whose *local* (browser)
+components are the wall clock — an hour from the user's. Whether the
+platform reads that `Date` as an instant (event lands an hour off in the
+user's display) or by its components (lands right) is exactly what this
+form can now measure: move an event a day and compare the formatted time
+before and after.
+
 Also on the walkthrough, though not a probe question: a move through the record
 (`setValue` with a local-component `Date`, measured for a date cell by
 `pcf-data-table` 0.4.0) read back a day later with the time of day kept, on
@@ -71,9 +116,9 @@ exists partly so the demo can open on the fixture's month.
 
 - **A browser whose zone differs from the user's Dataverse zone.** Placement
   reads the user's zone; a move writes a `Date` built from *browser-local*
-  components, which the platform's date editors also do. Correct where the two
-  agree, which is every host measured so far. Needs a user whose personal
-  options are set to a zone the machine is not in.
+  components, which the platform's date editors also do. **The test form is
+  in this state** (16 Sep: browser −360, user −300); the walkthrough's move
+  answers it.
 - **Canvas: whether the dataset hands over records with a write half**, and
   whether any date operator filters there. Neither has a test bed.
 - **A Time Zone Independent column.** Placement reads the UTC components and
