@@ -262,13 +262,25 @@ export function valueForApi(wall: Wall, behavior: Behavior, allDay: boolean, use
  * The value to pass as a **form parameter** for a date column — the second
  * argument to `openForm`, which is `{ [column]: string }`.
  *
- * Microsoft's page on form parameters says "use the text value of the date"
- * and shows `01/31/11`. Which spellings a quick create actually accepts is
- * the probe's first question (SPEC.md); the control sends the unambiguous
- * ISO day and the probe tries the documented one beside it.
+ * **Not the ISO day.** Measured 2026-09-16 on a quick create: `2026-09-20`
+ * is parsed as UTC midnight and the form opened on **9/19 6:00 PM**; the
+ * documented `MM/dd/yy`, `MM/dd/yyyy` and `MM/dd/yyyy hh:mm tt` all landed
+ * on the 20th. So the day goes in the user's own `shortDatePattern`
+ * (`M/d/yyyy`, `dd.MM.yyyy` …), which is the spelling the form parses
+ * dates in, with the US pattern as the fallback where no settings are
+ * published. Whether a `dd/MM/yyyy` user's form parses that pattern back
+ * correctly is not yet measured (SPEC.md).
  */
-export function formParameterDay(wall: Wall): string {
-    return dayKey(wall);
+export function formParameterDay(wall: Wall, names?: DateNames): string {
+    const pattern = names?.shortDatePattern || 'M/d/yyyy';
+
+    return pattern
+        .replace(/yyyy/g, String(wall.year))
+        .replace(/yy/g, String(wall.year).slice(-2))
+        .replace(/MM/g, pad(wall.month + 1))
+        .replace(/M/g, String(wall.month + 1))
+        .replace(/dd/g, pad(wall.day))
+        .replace(/d/g, String(wall.day));
 }
 
 // ---------------------------------------------------------------------------
@@ -487,6 +499,7 @@ export function optionValue(raw: unknown): number | null {
 
 /** The subset of `userSettings.dateFormattingInfo` a calendar reads. Every member is optional because the demo harness publishes none. */
 export interface DateNames {
+    shortDatePattern?: string;
     dayNames?: string[];
     abbreviatedDayNames?: string[];
     monthNames?: string[];

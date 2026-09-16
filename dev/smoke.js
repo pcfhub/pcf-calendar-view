@@ -560,7 +560,14 @@ check('opening an event goes through openDatasetItem with the named reference, a
 
     const opened = creating.calls().find((call) => call.startsWith('navigation.openForm'));
 
-    check('creating on a day opens the quick create with the day as a form parameter — the second argument', Boolean(opened) && opened.includes('"useQuickCreateForm":true') && opened.includes('"parameters":{"scheduledstart":"2026-09-20"}'), opened || 'no openForm');
+    check('creating on a day opens the quick create with the day as a form parameter in the short date pattern of the user — never the ISO day, which a form reads as UTC midnight (measured 2026-09-16: 9/19 6:00 PM)', Boolean(opened) && opened.includes('"useQuickCreateForm":true') && opened.includes('"parameters":{"scheduledstart":"9/20/2026"}'), opened || 'no openForm');
+
+    const european = bind({ dateFormattingInfo: { shortDatePattern: 'dd.MM.yyyy' } });
+
+    european.props().onCreate(W(2026, 9, 5));
+    await flush();
+
+    check('in whatever short date pattern the user has', european.calls().some((call) => call.includes('"parameters":{"scheduledstart":"05.09.2026"}')), european.calls().filter((c) => c.startsWith('navigation.openForm')).join(' '));
 
     check('seeded from the parent record on a form subgrid', Boolean(opened) && opened.includes('"createFromEntity":{"entityType":"account","id":"p-1"}'), opened || '');
 

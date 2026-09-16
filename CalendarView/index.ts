@@ -1,5 +1,7 @@
 import * as React from 'react';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
+// PROBE 0.0.2 — remove with CalendarView/probe.ts before the real build.
+import { installProbe } from './probe';
 import { CalendarViewControl, IProps, Metadata, Row } from './components/CalendarViewControl';
 import {
     Behavior,
@@ -173,6 +175,9 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
     private moveError: string | null = null;
 
+    // PROBE 0.0.2
+    private latestDataset: DataSet | null = null;
+
     public init(
         context: ComponentFramework.Context<IInputs>,
         notifyOutputChanged: () => void,
@@ -191,6 +196,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const dataset = context.parameters.records;
 
         this.applyPageSize(context, dataset);
+
+        // PROBE 0.0.2
+        this.latestDataset = dataset;
+
+        if ((dataset.sortedRecordIds ?? []).length > 0) {
+            installProbe(context, () => this.latestDataset ?? dataset);
+        }
 
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
@@ -630,6 +642,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     private createEvent(context: ComponentFramework.Context<IInputs>, dataset: DataSet, day: Wall): void {
         const open = formOpener(context);
         const start = this.roleColumn(dataset, ROLES.start);
+        const names = (context.userSettings as { dateFormattingInfo?: IProps['names'] } | undefined)?.dateFormattingInfo;
 
         if (!open || !start) {
             return;
@@ -648,7 +661,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         }
 
         void Promise.resolve()
-            .then(() => open(options, { [start.name]: formParameterDay(day) }))
+            .then(() => open(options, { [start.name]: formParameterDay(day, names) }))
             .then((result) => {
                 const saved = (result as { savedEntityReference?: { id?: unknown }[] | null } | undefined)
                     ?.savedEntityReference;
