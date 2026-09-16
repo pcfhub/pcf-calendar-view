@@ -469,6 +469,37 @@ check('a record with no start is not an event', !markup(west).includes('Unschedu
 
 check('today wears aria-current', /aria-current="date"/.test(cell(markup(plain), '2026-09-14') || ''), (cell(markup(plain), '2026-09-14') || '').slice(0, 160));
 
+/*
+ * The offset call is memoised per day. On a tenant whose zone has no DST
+ * rule for the year, the platform logs an error on *every* dated call
+ * (measured 2026-09-16), and a calendar that asks per event per render
+ * produced one line per event on every repaint. Rendering the component
+ * (which reads every row) three times over must cost one call per distinct
+ * day, and never the bare call — which answers the standard offset.
+ */
+const thrifty = bind({ userTimeZoneOffset: -300 });
+
+markup(thrifty);
+thrifty.settle();
+markup(thrifty);
+thrifty.settle();
+markup(thrifty);
+
+const offsetCalls = thrifty.calls().filter((call) => call.startsWith('userSettings.getTimeZoneOffsetMinutes'));
+
+// Every UTC day a loaded start or end falls on, plus today: the number of distinct answers the control can need.
+const distinctDays = new Set(
+    fixture.records.slice(0, 5)
+        .flatMap((row) => [row.values.scheduledstart, row.values.scheduledend])
+        .filter(Boolean)
+        .map((iso) => iso.slice(0, 10))
+        .concat(['2026-09-14']),
+);
+
+check('asks getTimeZoneOffsetMinutes once per distinct day, however many renders', offsetCalls.length === distinctDays.size, `${offsetCalls.length} calls for ${distinctDays.size} distinct days over three renders`);
+
+check('and always with the date — the bare call is the standard offset', offsetCalls.every((call) => call.includes('"dated"')), offsetCalls.find((call) => !call.includes('"dated"')) || '');
+
 const noNames = bind({ dateFormattingInfo: false });
 
 check('a host that publishes no dateFormattingInfo still gets English names and h:mm tt', /<th[^>]*>Sun<\/th>/.test(markup(noNames)) && markup(noNames).includes('September 2026'), markup(noNames).slice(0, 300));

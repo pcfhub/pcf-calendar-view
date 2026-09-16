@@ -68,6 +68,23 @@ All measured elsewhere, all in the skill; this file points rather than repeats.
   dismissed form resolving `{ savedEntityReference: null }` —
   `pcf-kanban-board` 0.3.0 and `pcf-data-table` 0.4.0. Both seen again here.
 
+### Two console lines from the walkthrough, 16 September
+
+- **`FormSignalUtils … reading 'entityTypeName'`, uncaught, after the +'s
+  quick create closes.** Read off the platform script: it is
+  `registerFormInitCortexHandler`'s post-navigation callback looking up the
+  quick create *page's* entity reference from app state after the page has
+  gone (`(0,n.j)(state, pageId)` → `undefined`). Microsoft's Copilot
+  form-signal telemetry, registered on every form init; nothing in
+  `openForm`'s options reaches it and the control's `.catch` cannot, since
+  it is the platform's own promise. Documented in the FAQ; not ours.
+- **`UserDateTimeUtils_getConstraintByYear_InvalidDate`, once per event per
+  render**, from `getTimeZoneOffsetMinutes(date)`. The platform's DST lookup
+  logs it for a date in a year the user's zone has no rule on file for, and
+  still answers (`-300`). The offset is memoised per UTC day on the instance
+  now — one call per day that carries an event, once — and the suite counts
+  the rig's calls across three renders.
+
 ## What the build disagreed with
 
 - **`-webkit-line-clamp` on a `<button>`.** Chrome lays a button's content out

@@ -68,6 +68,22 @@ for the time. An hour grid is the shape this control does not have — see
 the same setting the rest of the app uses. Fix it to Sunday or Monday for a
 calendar that has to agree with a printed one.
 
+## A console error after I press +, or open an event
+
+Two lines the platform writes, neither of which is a fault in the calendar:
+
+- `FormSignalUtils … Cannot read properties of undefined (reading
+  'entityTypeName')` after a quick create closes. That is the platform's own
+  Copilot form-signal handler, registered when the quick create form
+  initialised and run on the next navigation, when the form's page is
+  already gone. Any quick create opened through `openForm` produces it; the
+  event is created and the calendar refreshes regardless.
+- `UserDateTimeUtils_getConstraintByYear_InvalidDate` while the calendar
+  renders. The platform logs it when asked for the user's time zone offset
+  on a date in a year the zone's daylight-saving rules do not cover, and
+  answers correctly anyway. The control asks once per day and remembers the
+  answer, so you may see one line per day that has an event, once.
+
 ## Why two permission prompts?
 
 **Web API** is the second write route, taken only where the record refuses a

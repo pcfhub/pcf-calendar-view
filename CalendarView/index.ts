@@ -99,17 +99,42 @@ const MAX_PAGE_SIZE = 250;
  * even on a day in daylight time (measured, `pcf-date-range-picker`). A host
  * without the method, which is the demo harness, falls back to the browser's
  * own zone, sign flipped to match.
+ *
+ * **Memoised per calendar day, in `cache`.** The dated call is not free on
+ * every tenant: where the user's zone has no DST rule on file for the year
+ * asked about, the platform's `getDSTAdjustmentMinutes` logs
+ * `UserDateTimeUtils_getConstraintByYear_InvalidDate` to the console on
+ * *every* call — and still answers (measured 2026-09-16, `-300`). A calendar
+ * asks once per event per render, so opening a record produced one line per
+ * event. One call per distinct day, kept for the life of the control, is the
+ * same answer with the noise bounded to the days that carry events. The day
+ * is the UTC date, so on a DST transition day the hour or two around the
+ * switch can be read with the neighbouring offset — the same tolerance the
+ * platform's own bare call has for the whole half-year.
  */
-function userOffsetOf(context: ComponentFramework.Context<IInputs>): (date: Date) => number {
+function userOffsetOf(
+    context: ComponentFramework.Context<IInputs>,
+    cache: Map<string, number>,
+): (date: Date) => number {
     const settings = context.userSettings as { getTimeZoneOffsetMinutes?: (date?: Date) => number } | undefined;
 
     if (settings && typeof settings.getTimeZoneOffsetMinutes === 'function') {
         const read = settings.getTimeZoneOffsetMinutes.bind(settings);
 
         return (date: Date): number => {
-            const offset = read(date);
+            const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
+            const known = cache.get(key);
 
-            return typeof offset === 'number' && Number.isFinite(offset) ? offset : -date.getTimezoneOffset();
+            if (known !== undefined) {
+                return known;
+            }
+
+            const offset = read(date);
+            const answer = typeof offset === 'number' && Number.isFinite(offset) ? offset : -date.getTimezoneOffset();
+
+            cache.set(key, answer);
+
+            return answer;
         };
     }
 
@@ -165,6 +190,9 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     /** Column behaviours and option colours, once `loadMetadata` has resolved. */
     private metadata: Metadata | null = null;
 
+    /** The user's offset per UTC day, so `getTimeZoneOffsetMinutes` is asked once per day rather than once per event per render. */
+    private readonly offsetByDay = new Map<string, number>();
+
     /** Moves asserted locally and not yet confirmed: record id → the day key the start now sits on. */
     private readonly pending = new Map<string, { start: Wall; end: Wall | null }>();
 
@@ -196,7 +224,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const end = this.roleColumn(dataset, ROLES.end);
         const title = this.roleColumn(dataset, ROLES.title);
         const color = this.roleColumn(dataset, ROLES.color);
-        const userOffset = userOffsetOf(context);
+        const userOffset = userOffsetOf(context, this.offsetByDay);
 
         this.reconcile(dataset, start, end, userOffset);
 
@@ -514,7 +542,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             return;
         }
 
-        const userOffset = userOffsetOf(context);
+        const userOffset = userOffsetOf(context, this.offsetByDay);
         const startBehavior = this.metadata?.startBehavior ?? 'unknown';
         const endBehavior = this.metadata?.endBehavior ?? 'unknown';
         const current = this.pending.get(recordId);
