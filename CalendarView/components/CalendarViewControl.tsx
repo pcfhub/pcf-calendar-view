@@ -251,6 +251,26 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
         () => wallFromKey(props.initialDay) ?? wallFromKey(props.today) ?? { year: 2026, month: 0, day: 1, hour: 0, minute: 0 },
     );
 
+    /*
+     * Re-apply the maker's two inputs when they *change* — not only at mount.
+     * On a form they are set at design time and never move; on the hub's demo
+     * a preset switch changes them on a mounted control, and a state seeded
+     * once from props sat on the old value while the property panel said
+     * otherwise. Both effects are no-ops on mount, where state already holds
+     * the prop.
+     */
+    React.useEffect(() => {
+        setView(props.defaultView);
+    }, [props.defaultView]);
+
+    React.useEffect(() => {
+        const wanted = wallFromKey(props.initialDay);
+
+        if (wanted) {
+            setAnchor(wanted);
+        }
+    }, [props.initialDay]);
+
     const range = React.useMemo(() => visibleRange(view, anchor, firstDay), [view, anchor, firstDay]);
     const rangeKey = `${dayKey(range.first)}|${dayKey(range.last)}`;
 

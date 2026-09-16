@@ -11,6 +11,14 @@
 */
 
 .CalendarView {
+    /*
+      The narrow layout below keys off the control's *own* width, not the
+      viewport's: a phone frame in the hub's demo, and a narrow section on a
+      wide form, both hand the control a few hundred pixels inside a wide
+      window, and a viewport query never fires there. The media query is kept
+      beside the container query for a host that does not support the latter.
+    */
+    container-type: inline-size;
     font-family: var(--fontFamilyBase, 'Segoe UI', system-ui, sans-serif);
     font-size: var(--fontSizeBase300, 14px);
     color: var(--colorNeutralForeground1, #242424);
@@ -396,13 +404,59 @@ button.CalendarView-eventTitle:focus-visible {
         flex-wrap: wrap;
     }
 
+    /* An 8px dot of the option colour: the chip is all leading edge, no body. */
     .CalendarView-event {
-        width: 8px;
+        width: 0;
         height: 8px;
         padding: 0;
         border-inline-start-width: 8px;
         border-radius: 50%;
         overflow: hidden;
+    }
+
+    /* A continuing day keeps its dot — the missing edge that marks continuation is the whole dot here — dimmed instead. */
+    .CalendarView-event.is-continued {
+        border-inline-start-color: var(--colorBrandStroke1, #0f6cbd);
+        opacity: 0.5;
+    }
+
+    .CalendarView-eventTitle,
+    .CalendarView-eventMenu,
+    .CalendarView-eventBusy,
+    .CalendarView-eventBadge {
+        display: none;
+    }
+
+    .CalendarView-dayAdd {
+        display: none;
+    }
+}
+
+@container (max-width: 560px) {
+    .CalendarView-day {
+        min-height: 56px;
+        height: 56px;
+    }
+
+    .CalendarView-events {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    /* An 8px dot of the option colour: the chip is all leading edge, no body. */
+    .CalendarView-event {
+        width: 0;
+        height: 8px;
+        padding: 0;
+        border-inline-start-width: 8px;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    /* A continuing day keeps its dot — the missing edge that marks continuation is the whole dot here — dimmed instead. */
+    .CalendarView-event.is-continued {
+        border-inline-start-color: var(--colorBrandStroke1, #0f6cbd);
+        opacity: 0.5;
     }
 
     .CalendarView-eventTitle,

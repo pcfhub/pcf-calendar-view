@@ -153,6 +153,17 @@
             ReactDOM.render(driven.element, root);
         }
 
+        // For driving a changed input from the console: __preview.set('defaultView', 'week').
+        window.__preview = {
+            handle: handle,
+            render: render,
+            set: function (name, value) {
+                // The rig rebuilds parameters from its inputs on every pass, so the input is what changes.
+                handle.options.inputs[name] = value;
+                render();
+            },
+        };
+
         // The rig's dataset re-reads on a refresh, which is asynchronous —
         // the window filter lands on the second pass.
         render();
