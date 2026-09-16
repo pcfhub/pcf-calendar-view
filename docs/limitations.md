@@ -18,9 +18,11 @@ the record for the time.
 
 The visible range is fetched with the `On`/`OnOrAfter`/`OnOrBefore` date
 operators, which the platform documents for model-driven apps and which were
-measured working on a model-driven subgrid. Canvas apps are not asked: there
-the calendar shows what the data source loaded, every month at once, with a
-notice under the grid saying so. Bind a filtered data source there.
+measured working on a model-driven subgrid — including the nested *or* for
+events with no end, and narrowing a view's own filter rather than replacing
+it. Canvas apps are not asked: there the calendar shows what the data source
+loaded, every month at once, with a notice under the grid saying so. Bind a
+filtered data source there.
 
 ## A month bigger than a page needs Load more
 
@@ -39,14 +41,17 @@ anything else as an instant in the user's zone. A **User Local** column whose
 value happens to fall on UTC midnight is misplaced by that rule; it is the one
 ambiguity only metadata resolves.
 
-## Times are in the Dataverse user's zone, and the write assumes the browser agrees
+## A Date Only *format* on a User Local column is a day early for someone
 
-Events are placed by `userSettings.getTimeZoneOffsetMinutes()`, the zone in
-the user's personal options. A move is written back as a `Date` whose local
-components are the wall clock — the shape the platform's own date editors
-hand over — which is correct when the browser's zone is the user's, the case
-on every host this control has been measured on. A browser set to a different
-zone than the user's Dataverse settings has not been measured.
+Not this control's limitation, but the one it makes visible. A column whose
+format is *Date Only* but whose behaviour is *User Local* — the default when
+a maker creates one — stores midnight in whoever entered it, so users in
+other zones see the previous or next day, and a whole day written through
+the Web API as a bare date lands a day early for everyone west of Greenwich.
+The control reads the behaviour from metadata and writes such a column as an
+instant at the user's noon, which lands on the right day; the platform's own
+guidance is to give the column *Date Only* behaviour, which cannot be
+changed once set.
 
 ## Moving in a canvas app is unverified
 

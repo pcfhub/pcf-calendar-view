@@ -637,6 +637,22 @@ check('opening an event goes through openDatasetItem with the named reference, a
     check('with nothing staged on the record', !readOnly.calls().some((call) => call.startsWith('record.setValue')), '');
 
     /*
+     * A date-*formatted* column whose behaviour is unknown goes to the Web
+     * API as an instant at the user's noon, never as a bare day: measured
+     * 2026-09-16, a bare day into a User Local column formatted as Date Only
+     * displayed the previous day. Only metadata saying Date Only earns the
+     * bare day (the check below this one).
+     */
+    const dueUnknown = bind({ columns: dueColumns, userTimeZoneOffset: -300, quirks: { editableAbsent: true } });
+
+    dueUnknown.props().onMove('e1', 2);
+    await flush();
+
+    const dueUnknownCall = dueUnknown.calls().find((call) => call.startsWith('webAPI.updateRecord'));
+
+    check('a date-formatted column of unknown behaviour is written to the Web API as an instant at noon in the zone of the user, not a bare day', Boolean(dueUnknownCall) && dueUnknownCall.includes('"cll_dueon":"2026-09-16T17:00:00.000Z"'), dueUnknownCall || 'no updateRecord');
+
+    /*
      * With metadata read, a Date Only column goes to the Web API as a bare
      * day — and a User Local one as the instant in the user's zone.
      */

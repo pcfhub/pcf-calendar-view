@@ -2,92 +2,71 @@
 
 A Dataverse view as a month or week calendar, by a date column.
 
-## Not verified — the 0.0.1 probe
+## Measured — the 0.0.1 / 0.0.2 probes, 16 September 2026
 
-Everything below the line rests on measurements other controls made. Four
-things do not, and each names the feature it removes if the answer goes the
-wrong way. The probe build (`0.0.1`, `CalendarView/probe.ts`, deleted before
-the real build) logs passively from `updateView` and exposes
-`window.__calendarViewProbe` for the active calls; the answers go here as
-*Measured* before `0.1.0` is tagged.
+On the Accounts form (`cll365`), a `cll_event` subgrid: page size 4, twelve
+rows, User Local `cll_starts`/`cll_ends`, a `cll_dueon` that turned out to be
+**User Local with a Date Only format**, a coloured `cll_kind` choice. The
+user's zone was UTC−5 (DST); **the browser's was UTC−6** — an hour apart,
+which is the state this control had listed as unmeasurable.
 
-| # | Question | If it goes the wrong way |
+### The four questions, and what each settled
+
+| # | Question | Measured |
 | --- | --- | --- |
-| Q1 | Which string does `openForm(options, { [dateColumn]: value })` accept for a **date** column — the ISO day `2026-09-20`, the documented `MM/dd/yy`, or the user's short date? The docs say "the text value of the date" and show `01/31/11`. `probe.tryCreate(format)` tries each. | The **+** sends the format that worked; if none preselects the day, the **+** opens a bare quick create and `docs/model-driven.md` says so. |
-| Q2 | Is a **nested `filters` array** honoured on a subgrid — `start ≤ last AND (end ≥ first OR end IS NULL)`? `probe.window(first, last)` sends it and reads `sortedRecordIds.length` back after ≥15 s. Compare with `probe.windowFlat(first, last)`, which sends `end ≥ first` without the `Null`. | The filter collapses to `first ≤ start ≤ last` on the start column alone — events spanning into the window from before it are missed, and `docs/limitations.md` says so. |
-| Q3 | Does a window filter **narrow the view's own filter or replace it**? Bind the calendar to a view that excludes a known record and call `probe.window` over its date; count whether it appears. | If it replaces: the control cannot be bound to a filtered view honestly, and `docs/model-driven.md` says the view's filter is lost while a window is applied. |
-| Q4 | Does `webAPI.updateRecord` accept `"yyyy-MM-dd"` for a **Date Only** column and an ISO instant for a **User Local** one, and read back as the day/instant written? `probe.moveViaApi(id, days)` forces the API route. | The API route sends whichever shape read back right; if neither, moves are record-route only and a refused `isEditable` becomes a refused move. |
+| Q1 | Which spelling does a **date** form parameter accept on the quick create? | **Not the ISO day.** `2026-09-20` was parsed as UTC midnight and the form opened on *9/19 6:00 PM*. `09/20/26`, `09/20/2026` and `09/20/2026 12:00 PM` all landed on the 20th. The control sends the user's own `shortDatePattern` (`9/20/2026` here). |
+| Q2 | Is a nested `filters[]` honoured on a subgrid? | **Yes.** `start ≤ 19 Sep AND (end ≥ 13 Sep OR end IS NULL)` returned 6 of 12 and included an event starting 31 Aug that spans in; the flat window on the start column returned 5 and dropped it. `Null` (12) is honoured inside the nested `Or`. |
+| Q3 | Does the window narrow or replace the view's own filter? | **Narrows.** The same window on a *Kind ≠ Meeting* view returned 4, not 6. The two filters AND, so a filtered view is an honest binding. |
+| Q4 | What does `webAPI.updateRecord` take for a date? | **An ISO instant for User Local** read back exactly +1 day (`10/4/2026 12:00 AM`). **A bare `yyyy-MM-dd` into a User Local column formatted as Date Only stored UTC midnight and displayed the previous day** (`2026-10-04` → *10/3/2026*). Only a column whose metadata says `Behavior: 2` gets the bare day; every other whole day goes as an instant at the user's noon. A true Date Only behaviour was not on the table and is under *Not verified*. |
 
-### Measured — the passive half, 16 September 2026
+### The zone gap, closed
 
-On the Accounts form, a `cll_event` subgrid (page size 4, 12 rows), the
-0.0.1 probe's passive log, before any question was asked:
+`moveViaRecord` handed `setValue` a `Date` built from **browser-local**
+components — *Mon Oct 05 2026 00:00 GMT−0600*, i.e. `06:00Z` — and the
+platform stored `05:00Z`, shown as **10/5/2026 12:00 AM**. The record route
+reads a `Date`'s local components as the **user's** wall clock, whatever
+zone the browser is in. That is the field-control finding from
+`pcf-date-range-picker`, now measured on a dataset record from a browser an
+hour away from its user. `dateForWrite` is right as written.
 
-- **The write half is there**: `setValue`, `save` and `isEditable` are all
-  functions on a dataset record. Same as `pcf-data-table` and Kanban saw.
-- **`getValue` on `cll_starts` is the ISO instant** —
-  `"2026-10-03T05:00:00.000Z"` shown as `10/3/2026 12:00 AM`, so the user's
-  zone is UTC−5 and the control's placement rule is the right one. The end
-  came back `2026-10-04T04:30:00.000Z` / `11:30 PM`.
-- **`getTimeZoneOffsetMinutes(new Date())` answered `-300` and the bare
-  call `-360`** — the quirk the range picker measured, reproduced on a
-  second tenant, and the rig's hour-off model is right. **And the browser's
-  own offset was `-360`**: the machine (Mexico City, no DST) is an hour
-  from the Dataverse user's setting (a DST zone at −5 in September). That
-  is the *browser ≠ user zone* state under **Not verified — beyond the
-  probe**, live on the test form — see the walkthrough note below.
-- **The datetime metadata node**: `Behavior: 1`, `Format: "dateandtime"`,
-  `AttributeType: 2`, **`AttributeTypeName: "datetime"`** (lower-case — the
-  rig said `DateTimeType`, the SDK's spelling, and is corrected). The node's
-  own keys are all private (`_attributeType`, `_logicalName` …) with the
-  public names as getters, so `Object.keys` sees none of them; the
-  `attributeDescriptor` underneath carries `Behavior: 1` and
-  `Format: "datetime"` — note the descriptor spells the format
-  differently from the node.
-- **`Color` on the descriptor array, three options with colours** —
-  `#1a8bed`, `#bfed18`, `#ea1cfc` — as Kanban measured. The first record
-  carried `cll_kind = "4"`, a value the descriptor did not list; the control
-  shows such an event with the brand edge and the label as a badge, which is
-  the designed fallback, but *why* the option is missing from the array is
-  worth a look (added after publish? hidden?).
-- **Paging and context**: `pageSize 4`, `totalResultCount 12`,
-  `hasNextPage true` — the *Load more* path is live on this form;
-  `contextInfo` is the parent account, unbraced; `filtering.setFilter`,
-  `navigation.openForm`, `webAPI` and `utils` all present.
+### Passive, before any question
 
-**Walkthrough note on the zone gap.** With the browser at −360 and the user
-at −300, a move through `setValue` writes a `Date` whose *local* (browser)
-components are the wall clock — an hour from the user's. Whether the
-platform reads that `Date` as an instant (event lands an hour off in the
-user's display) or by its components (lands right) is exactly what this
-form can now measure: move an event a day and compare the formatted time
-before and after.
-
-Also on the walkthrough, though not a probe question: a move through the record
-(`setValue` with a local-component `Date`, measured for a date cell by
-`pcf-data-table` 0.4.0) read back a day later with the time of day kept, on
-both a User Local and a Date Only column; the end column shifted with it; the
-**+** on a form subgrid created a row that landed in the subgrid.
+- The write half is on a dataset record (`setValue`, `save`, `isEditable`);
+  `isEditable("cll_starts")` answered `true`, and `save()` resolved
+  `{ etn, id: { guid } }`.
+- `getValue` on a date column is the ISO instant (`2026-10-03T05:00:00.000Z`
+  shown as *10/3/2026 12:00 AM*).
+- `getTimeZoneOffsetMinutes(new Date())` answered `-300`; the bare call
+  `-360` — the range picker's quirk, on a second tenant.
+- The datetime metadata node: `Behavior: 1`, `Format: "dateandtime"`,
+  `AttributeType: 2`, `AttributeTypeName: "datetime"` (lower-case; the rig
+  said `DateTimeType` and is corrected). Its own keys are all private with
+  the public names as getters; the `attributeDescriptor` underneath spells
+  the format `"datetime"`, not `"dateandtime"`.
+- `Color` on `attributeDescriptor.OptionSet[]` — `#1a8bed`, `#bfed18`,
+  `#ea1cfc`. The first record carried `cll_kind = "4"`, a value the
+  descriptor did not list; the control drew it with the brand edge and the
+  label as a badge, the designed fallback.
+- `contextInfo` is the parent account, unbraced; `filtering`, `openForm`,
+  `webAPI`, `utils` all present; `hasNextPage` true at page size 4.
+- **`context.parameters.records` is a new object on every pass**, and the
+  0.0.1 probe read counts off the first one — every Q2 answer it printed was
+  the first pass's. The `pcf-data-table` 0.5.0 finding, walked into again
+  by the thing written to avoid it. 0.0.2 read through a getter.
 
 ## Platform behaviour this control rests on
 
 All measured elsewhere, all in the skill; this file points rather than repeats.
 
-- **A date column's `getValue` is an ISO string** — a Date Only day at UTC
-  midnight, a User Local instant — measured by `pcf-data-table` 2026-09-11.
-- **`On` / `OnOrBefore` / `OnOrAfter` with `'yyyy-MM-dd'` work on a
-  model-driven subgrid and compare by the user's calendar day**, not UTC
-  (`pcf-data-table` 0.4.0). Model-driven only per the reference table; canvas
-  is not asked and gets no window filter.
-- **`getEntityMetadata`'s datetime node carries `Behavior` (1/2/3) and
-  `Format`** (`pcf-date-range-picker`); **a choice's `Color` is on
-  `attributeDescriptor.OptionSet[]` only** (`pcf-kanban-board`, 2026-09-14).
-- **`getTimeZoneOffsetMinutes(date)` is the platform's sign and the bare call
-  answers the standard offset** (`pcf-date-range-picker`). Every call here
-  passes the date.
+- **`On` / `OnOrBefore` / `OnOrAfter` with `'yyyy-MM-dd'` compare by the
+  user's calendar day** (`pcf-data-table` 0.4.0). Model-driven only per the
+  reference table; canvas gets no window filter.
+- **`getEntityMetadata`'s datetime node carries `Behavior` and `Format`**
+  (`pcf-date-range-picker`); **a choice's `Color` is on
+  `attributeDescriptor.OptionSet[]` only** (`pcf-kanban-board`).
 - **Two write routes chosen per record**, `openForm`'s second argument, a
-  dismissed form resolving `{ savedEntityReference: null }` — `pcf-kanban-board`
-  0.3.0 and `pcf-data-table` 0.4.0.
+  dismissed form resolving `{ savedEntityReference: null }` —
+  `pcf-kanban-board` 0.3.0 and `pcf-data-table` 0.4.0. Both seen again here.
 
 ## What the build disagreed with
 
@@ -112,16 +91,24 @@ environment. What *does* work there is placement, navigation, the view switch,
 and an optimistic move — enough to see what the control is. `initialDate`
 exists partly so the demo can open on the fixture's month.
 
-## Not verified — beyond the probe
+## Not verified
 
-- **A browser whose zone differs from the user's Dataverse zone.** Placement
-  reads the user's zone; a move writes a `Date` built from *browser-local*
-  components, which the platform's date editors also do. **The test form is
-  in this state** (16 Sep: browser −360, user −300); the walkthrough's move
-  answers it.
-- **Canvas: whether the dataset hands over records with a write half**, and
+- **A true Date Only *behaviour* column** (`Behavior: 2`). Placement reads
+  its UTC components and the API route sends a bare day, both from the
+  reference; `cll_dueon` looked like one and was User Local underneath, so
+  neither has been on a form. Change `cll_dueon`'s behaviour (it is permanent
+  once set — create a second column) and rebind Start to it.
+- **A quick create for a `dd/MM/yyyy` user.** The form parameter is sent in
+  the user's own `shortDatePattern`; only `M/d/yyyy` has been seen to parse.
+- **Canvas**: whether the dataset hands over records with a write half, and
   whether any date operator filters there. Neither has a test bed.
 - **A Time Zone Independent column.** Placement reads the UTC components and
   the API route writes them as UTC; neither has been on a form.
-- **`weekStart: auto` on a tenant whose `firstDayOfWeek` is not Sunday.**
-  The rig models it; no real user settings have been read.
+- **`weekStart: auto` on a tenant whose `firstDayOfWeek` is not Sunday.** The
+  rig models it; this tenant answers `0`.
+
+## Promoting a finding
+
+The zone-gap measurement, the form-parameter spelling, the nested filter and
+the User-Local-as-Date-Only trap are in the skill's *A date read through a
+dataset*; this file keeps the numbers and the dates.

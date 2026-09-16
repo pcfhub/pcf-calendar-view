@@ -32,6 +32,10 @@ on the form and not just this one.
 If the day is wrong only in a canvas app, the control has no metadata there
 and placed the value by its shape — see [Canvas apps](canvas.md).
 
+Your browser being in a different time zone from your Dataverse personal
+options is *not* a cause: events are placed and written by the Dataverse
+zone, measured with the two an hour apart.
+
 ## Dragging does nothing
 
 - **The drag handles are missing altogether.** No route on this host can

@@ -78,7 +78,9 @@ never write.
 
 Each day carries a **+** (on hover, or always on a touch screen) that opens
 the table's **quick create form** with the Start column already set to that
-day, passed as a form parameter. On a form subgrid the new record is also
+day, passed as a form parameter in your own short date format — the form
+reads an ISO day as UTC midnight and lands a day early, so the control never
+sends one. On a form subgrid the new record is also
 seeded from the parent, so it lands in the subgrid you created it from. The
 `createdRecordId` output carries the new row's id once the form saves, and the
 calendar refreshes to show it.

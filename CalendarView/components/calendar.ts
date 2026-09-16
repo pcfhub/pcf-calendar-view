@@ -237,10 +237,17 @@ export function dateForWrite(wall: Wall, allDay: boolean): Date {
  * Time Zone Independent stores the components verbatim, as UTC.
  */
 export function valueForApi(wall: Wall, behavior: Behavior, allDay: boolean, userOffset: (date: Date) => number): string {
-    // A Date Only behaviour takes a bare day; so does a date-formatted column
-    // whose behaviour could not be read, because a day is what its user typed
-    // and an instant is the shape that lands a day early for half the world.
-    if (behavior === 'dateonly' || (allDay && behavior === 'unknown')) {
+    /*
+     * Only a **Date Only behaviour** takes the bare day. A date-*formatted*
+     * column is usually User Local underneath — the pairing Microsoft warns
+     * against, and the one a maker gets by default — and a bare day into it
+     * is stored as UTC midnight and shown a day early for every user west of
+     * Greenwich: measured 2026-09-16 on `cll_dueon`, `2026-10-04` read back
+     * as `10/3/2026`. So a whole day on anything else is an instant at the
+     * user's **noon**, which is the same calendar day in every zone within
+     * twelve hours of the user.
+     */
+    if (behavior === 'dateonly') {
         return dayKey(wall);
     }
 
