@@ -12,13 +12,14 @@
 
 .CalendarView {
     /*
-      The narrow layout below keys off the control's *own* width, not the
-      viewport's: a phone frame in the hub's demo, and a narrow section on a
-      wide form, both hand the control a few hundred pixels inside a wide
-      window, and a viewport query never fires there. The media query is kept
-      beside the container query for a host that does not support the latter.
+      NOT a size container. 0.1.3 put `container-type: inline-size` here so the
+      narrow layout could key off the control's own width — and a form section
+      hands the control a shrink-to-fit parent, which sizes itself *from* the
+      control; size containment makes the control's intrinsic width zero, so
+      the whole calendar collapsed to a one-column sliver on every form. The
+      narrow layout is a class the component sets from a ResizeObserver
+      instead (`.CalendarView--narrow`), which measures without containing.
     */
-    container-type: inline-size;
     font-family: var(--fontFamilyBase, 'Segoe UI', system-ui, sans-serif);
     font-size: var(--fontSizeBase300, 14px);
     color: var(--colorNeutralForeground1, #242424);
@@ -432,43 +433,44 @@ button.CalendarView-eventTitle:focus-visible {
     }
 }
 
-@container (max-width: 560px) {
-    .CalendarView-day {
-        min-height: 56px;
-        height: 56px;
-    }
+/*
+  The same layout, as a class: set by the component when a ResizeObserver
+  measures the root under 560px. That is what fires inside the hub's phone
+  frame and a narrow form section, where the viewport is wide and the media
+  query above never matches.
+*/
+.CalendarView--narrow .CalendarView-day {
+    min-height: 56px;
+    height: 56px;
+}
 
-    .CalendarView-events {
-        flex-direction: row;
-        flex-wrap: wrap;
-    }
+.CalendarView--narrow .CalendarView-events {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
 
-    /* An 8px dot of the option colour: the chip is all leading edge, no body. */
-    .CalendarView-event {
-        width: 0;
-        height: 8px;
-        padding: 0;
-        border-inline-start-width: 8px;
-        border-radius: 50%;
-        overflow: hidden;
-    }
+/* An 8px dot of the option colour: the chip is all leading edge, no body. */
+.CalendarView--narrow .CalendarView-event {
+    width: 0;
+    height: 8px;
+    padding: 0;
+    border-inline-start-width: 8px;
+    border-radius: 50%;
+    overflow: hidden;
+}
 
-    /* A continuing day keeps its dot — the missing edge that marks continuation is the whole dot here — dimmed instead. */
-    .CalendarView-event.is-continued {
-        border-inline-start-color: var(--colorBrandStroke1, #0f6cbd);
-        opacity: 0.5;
-    }
+/* A continuing day keeps its dot — the missing edge that marks continuation is the whole dot here — dimmed instead. */
+.CalendarView--narrow .CalendarView-event.is-continued {
+    border-inline-start-color: var(--colorBrandStroke1, #0f6cbd);
+    opacity: 0.5;
+}
 
-    .CalendarView-eventTitle,
-    .CalendarView-eventMenu,
-    .CalendarView-eventBusy,
-    .CalendarView-eventBadge {
-        display: none;
-    }
-
-    .CalendarView-dayAdd {
-        display: none;
-    }
+.CalendarView--narrow .CalendarView-eventTitle,
+.CalendarView--narrow .CalendarView-eventMenu,
+.CalendarView--narrow .CalendarView-eventBusy,
+.CalendarView--narrow .CalendarView-eventBadge,
+.CalendarView--narrow .CalendarView-dayAdd {
+    display: none;
 }
 
 @media (forced-colors: active) {

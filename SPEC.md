@@ -85,6 +85,20 @@ All measured elsewhere, all in the skill; this file points rather than repeats.
   now — one call per day that carries an event, once — and the suite counts
   the rig's calls across three renders.
 
+### 0.1.3 collapsed the calendar on every form, and 0.1.4 is why
+
+`container-type: inline-size` on the root, added so the phone layout could key
+off the control's own width. **Size containment makes the element's intrinsic
+inline size zero**, and a form section hands the control a shrink-to-fit
+parent — the root is *capped* by `allocatedWidth` through `max-width`, not
+sized by it — so the parent shrank to nothing and the month rendered as a
+one-column sliver. The hub's phone frame has a definite width, which is why
+the demo looked right. Measured 2026-09-16 on the Accounts form. The narrow
+layout is a class set from a `ResizeObserver` on the root now: it measures
+the width the control got and contains nothing; the viewport media query
+stays for a host without the observer. **Never put size containment on a
+control's root** — the parent may be sizing itself from you.
+
 ## What the build disagreed with
 
 - **`-webkit-line-clamp` on a `<button>`.** Chrome lays a button's content out

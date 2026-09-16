@@ -107,6 +107,9 @@ export interface IProps {
 
 const NO_METADATA: Metadata = { startBehavior: 'unknown', endBehavior: 'unknown', colors: new Map() };
 
+/** Below this many pixels of the control's own width, the month becomes dots and the + goes. Matches the stylesheet's media query. */
+const NARROW_BELOW = 560;
+
 /*
  * Fluent's own 16-px path data — the platform's Fluent build ships no icon
  * set, so the three glyphs a calendar needs are drawn here. Inline SVG rather
@@ -271,6 +274,36 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
         }
     }, [props.initialDay]);
 
+    /*
+     * Narrow is measured, not queried. A viewport media query never fires for
+     * a 373px control in a wide window — the hub's phone frame, a narrow form
+     * section — and a CSS size container collapses the control under the
+     * shrink-to-fit parent a form section is (0.1.3 shipped one and every
+     * form showed a sliver). A ResizeObserver on the root reads the width the
+     * control actually got and contains nothing. Hosts without the observer
+     * keep the media query in the stylesheet.
+     */
+    const rootRef = React.useRef<HTMLDivElement>(null);
+    const [narrow, setNarrow] = React.useState(false);
+
+    React.useEffect(() => {
+        const root = rootRef.current;
+
+        if (!root || typeof ResizeObserver !== 'function') {
+            return undefined;
+        }
+
+        const observer = new ResizeObserver((entries) => {
+            const width = entries[0]?.contentRect.width ?? 0;
+
+            setNarrow(width > 0 && width < NARROW_BELOW);
+        });
+
+        observer.observe(root);
+
+        return () => observer.disconnect();
+    }, []);
+
     const range = React.useMemo(() => visibleRange(view, anchor, firstDay), [view, anchor, firstDay]);
     const rangeKey = `${dayKey(range.first)}|${dayKey(range.last)}`;
 
@@ -326,7 +359,8 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
     const frame = (content: React.ReactElement): React.ReactElement => (
         <FluentProvider theme={props.theme ?? webLightTheme} dir={props.isRTL ? 'rtl' : 'ltr'}>
             <div
-                className={`CalendarView CalendarView--${view}`}
+                ref={rootRef}
+                className={`CalendarView CalendarView--${view}${narrow ? ' CalendarView--narrow' : ''}`}
                 style={props.allocatedWidth ? { maxWidth: `${props.allocatedWidth}px` } : undefined}
             >
                 {content}
