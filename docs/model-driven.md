@@ -74,6 +74,24 @@ round trip finishes, and returns to its day with a message above the calendar
 if the write is refused. Turn **Allow move** off for a calendar that should
 never write.
 
+## The timeline
+
+The third view lists the month's events one per row, the days across, and
+draws each as a bar from its start to its end — one day wide with no End
+bound, clipped at the month's edge when it started earlier or ends later.
+Drag a bar to move the whole event; drag its **left or right edge** to change
+the start or the end alone, which writes only that column. An End resized to
+before the Start is held at the Start; an event with no end that is stretched
+is given one. The **⋯** menu on each row carries the same six changes —
+*a day earlier / later* for the whole event, and *start* or *end a day
+earlier / later* — for anyone without a mouse. The row's title opens the
+record, as a chip does.
+
+The month scrolls sideways inside the control on a narrow form, with the
+titles held in place; the day columns never shrink below a legible width.
+The **+ New** button in the toolbar creates on the day last selected — press
+a day's number in the header — or today.
+
 ## Creating an event
 
 Each day carries a **+** (on hover, or always on a touch screen) that opens
@@ -90,8 +108,9 @@ form instead. Turn **Allow create** off to hide the **+** entirely.
 
 ## Which rows are fetched
 
-The visible range — the whole weeks a month view shows, or the seven days of a
-week — is sent to the dataset as a filter: *Start* on or before the last day,
+The visible range — the whole weeks a month view shows, the seven days of a
+week, or the timeline's month from the 1st to the last — is sent to the
+dataset as a filter: *Start* on or before the last day,
 and either *End* on or after the first day or *End* empty. Stepping months
 re-filters and refreshes, so the view's own filter still applies and only the
 rows in range load.
@@ -104,6 +123,7 @@ use the subgrid's own page size, or set it to fetch a whole month at once.
 
 Bind **Colour** to a choice column and each event takes the colour Dataverse
 assigned its option — as a bar on the leading edge, never a background, so an
-arbitrary colour cannot make the title unreadable. In the week view the
-option's label is also shown as a badge. Options with no colour, and choice
+arbitrary colour cannot make the title unreadable. In the week view, and
+beside each title on the timeline, the option's label is also shown as a
+badge. Options with no colour, and choice
 values the option set does not carry, show the brand edge and the label.

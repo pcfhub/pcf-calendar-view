@@ -6,10 +6,13 @@ order: 1
 
 # Calendar View
 
-A Dataverse view as a month or week calendar, by a date column. Drag an event
-to another day to reschedule it; press **+** on a day to create one there.
+A Dataverse view as a month, a week or a timeline, by a date column. Drag an
+event to another day to reschedule it; on the timeline, drag an end of its bar
+to change how long it runs; press **+** to create one.
 
-::image{src=media/screenshot-month.png alt="A month of appointments, one dragged to a new day" zoom}
+::image{src=media/screenshot-month-v2.png alt="A month of appointments, one dragged to a new day" zoom}
+
+::image{src=media/screenshot-timeline.png alt="The same month as a timeline: one row per event, a bar from its start to its end" zoom}
 
 ## Why this one
 
@@ -35,6 +38,10 @@ Three things it does that a subgrid does not:
   and the end column shifted by the same days, through the record where the
   platform allows it and through the Web API otherwise. The event moves
   before the round trip finishes and returns if the write is refused.
+- **Shows the length of things.** The timeline is one row per event with
+  the days of the month across and a bar from start to end — the view for a
+  month of projects, bookings or campaigns, where *how long* matters as much
+  as *when*. Drag an end of a bar and only that column is written.
 
 ## What it works with
 
@@ -52,6 +59,7 @@ are model-driven only, there is no metadata to read, and no form to open — see
 ## What it is not
 
 Not a scheduler. There is no hour grid, no resource lane and no overlap
-resolution: a week is seven columns of events in time order, and a month is
-whole days. If you need appointments drawn to scale against the hours of a
-day, this is not that control.
+resolution: a week is seven columns of events in time order, a month is whole
+days, and the timeline's bars are whole days too. If you need appointments
+drawn to scale against the hours of a day, this is not that control. Nor is
+it a Gantt chart: the timeline draws no dependencies and no critical path.

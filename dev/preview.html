@@ -30,7 +30,7 @@
   Query parameters, all optional:
 
     ?fixture=demo          render demo/records.json instead of dev/fixture.js
-    ?view=week             open in the week view
+    ?view=week             open in the week view (or ?view=timeline)
     ?date=2026-09-14       the day to open on (default: today)
     ?zone=-300             the user's zone, minutes ahead of UTC (default: the browser's)
     ?canvas=1              a canvas host: no webAPI, no utils, no forms
@@ -130,7 +130,7 @@
             tokenTheme: dark ? window.__harnessFluent.webDarkTheme : undefined,
             userTimeZoneOffset: number('zone'),
             inputs: {
-                defaultView: params.get('view') === 'week' ? 'week' : 'month',
+                defaultView: params.get('view') === 'week' || params.get('view') === 'timeline' ? params.get('view') : 'month',
                 weekStart: 'auto',
                 initialDate: params.get('date'),
                 allowMove: params.get('move') !== '0',
@@ -158,8 +158,8 @@
             handle: handle,
             render: render,
             set: function (name, value) {
-                // The rig rebuilds parameters from its inputs on every pass, so the input is what changes.
-                handle.options.inputs[name] = value;
+                // The rig's own host-that-changes-an-input: the next pass carries the new raw and names it in updatedProperties.
+                handle.setInput(name, value);
                 render();
             },
         };

@@ -105,6 +105,11 @@
     gap: var(--spacingHorizontalS, 8px);
 }
 
+/* The timeline's New button: icon then word, the icon the same 16px as the arrows. */
+.CalendarView-new {
+    gap: var(--spacingHorizontalXS, 4px);
+}
+
 /* ------------------------------------------------------------------- grid */
 
 /*
@@ -421,10 +426,11 @@ button.CalendarView-eventTitle:focus-visible {
         opacity: 0.5;
     }
 
-    .CalendarView-eventTitle,
-    .CalendarView-eventMenu,
-    .CalendarView-eventBusy,
-    .CalendarView-eventBadge {
+    /* Scoped to the chip: the timeline's label column shares these class names and keeps its text at every width. */
+    .CalendarView-event .CalendarView-eventTitle,
+    .CalendarView-event .CalendarView-eventMenu,
+    .CalendarView-event .CalendarView-eventBusy,
+    .CalendarView-event .CalendarView-eventBadge {
         display: none;
     }
 
@@ -465,21 +471,282 @@ button.CalendarView-eventTitle:focus-visible {
     opacity: 0.5;
 }
 
-.CalendarView--narrow .CalendarView-eventTitle,
-.CalendarView--narrow .CalendarView-eventMenu,
-.CalendarView--narrow .CalendarView-eventBusy,
-.CalendarView--narrow .CalendarView-eventBadge,
+/* Scoped to the chip: the timeline's label column shares these class names and keeps its text at every width (a phone frame showed thirteen empty rows before it was). */
+.CalendarView--narrow .CalendarView-event .CalendarView-eventTitle,
+.CalendarView--narrow .CalendarView-event .CalendarView-eventMenu,
+.CalendarView--narrow .CalendarView-event .CalendarView-eventBusy,
+.CalendarView--narrow .CalendarView-event .CalendarView-eventBadge,
 .CalendarView--narrow .CalendarView-dayAdd {
     display: none;
 }
 
+/* --------------------------------------------------------------- timeline */
+
+/*
+  One row per event, the days across. The scrolling element is this one, not
+  the form: the grid inside has a minimum width per day column it will not go
+  below, so a month wider than the control scrolls sideways *here*, and the
+  root above it stays capped at allocatedWidth. Overflow on the root itself
+  would have been the 0.1.3 collapse in another coat — a form section sizes
+  itself from the control, so the wide thing has to be inside a box that has
+  a width of its own.
+*/
+.CalendarView-timeline {
+    --CalendarView-tlLabel: 180px;
+    --CalendarView-tlDay: 36px;
+    --CalendarView-tlRow: 32px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    background-color: var(--colorNeutralBackground1, #ffffff);
+    /* The row height is fixed, so a scrollbar's own height must not squeeze the last row. */
+    scrollbar-gutter: stable;
+}
+
+/*
+  Every cell is placed explicitly by the component, so the grid needs no
+  auto-flow. Its width is the scroll container's, and the day tracks' 36px
+  *minimum* is what overflows it into a sideways scroll on a narrow control
+  — not `min-width: max-content`, which sized every 1fr track to the longest
+  title a bar carried and made a month 6,400px wide (measured 2026-09-17).
+*/
+.CalendarView-tlGrid {
+    display: grid;
+    grid-auto-rows: var(--CalendarView-tlRow);
+    width: 100%;
+}
+
+.CalendarView-tlCorner,
+.CalendarView-tlHead {
+    position: sticky;
+    top: 0;
+    box-sizing: border-box;
+    height: var(--CalendarView-tlRow);
+    padding: 0 var(--spacingHorizontalXS, 4px);
+    font-size: var(--fontSizeBase200, 12px);
+    color: var(--colorNeutralForeground3, #616161);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+    border-bottom: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+/* The corner is sticky both ways: it stays over the label column as the days scroll under it. */
+.CalendarView-tlCorner {
+    left: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    padding-inline-start: var(--spacingHorizontalS, 8px);
+    font-weight: var(--fontWeightSemibold, 600);
+    border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+.CalendarView-tlHead {
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border-inline-start: 1px solid var(--colorNeutralStroke3, #f0f0f0);
+}
+
+/* The day number reuses the month view's button; the weekday under it is the abbreviation, clipped rather than wrapped. */
+.CalendarView-tlHead .CalendarView-dayNumber {
+    margin: 0;
+    height: 18px;
+    min-width: 18px;
+    line-height: 18px;
+    padding: 0 2px;
+}
+
+.CalendarView-tlWeekday {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+    font-size: var(--fontSizeBase100, 10px);
+}
+
+.CalendarView-tlHead.is-weekend,
+.CalendarView-tlCell.is-weekend {
+    background-color: var(--colorNeutralBackground2, #fafafa);
+}
+
+.CalendarView-tlHead.is-today {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
+.CalendarView-tlCell {
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--colorNeutralStroke3, #f0f0f0);
+    border-inline-start: 1px solid var(--colorNeutralStroke3, #f0f0f0);
+}
+
+/* Today is a column, so the tint runs the height of the timeline. */
+.CalendarView-tlCell.is-today {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
+/*
+  The label column stays put while the days scroll. It is the accessible half
+  of the row — title button, menu, busy state — and the only part of a row a
+  keyboard reaches, which is why the menu lives here and not on the bar.
+*/
+.CalendarView-tlLabel {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--spacingHorizontalXXS, 2px);
+    min-width: 0;
+    height: var(--CalendarView-tlRow);
+    padding: 0 var(--spacingHorizontalXS, 4px) 0 var(--spacingHorizontalS, 8px);
+    background-color: var(--colorNeutralBackground1, #ffffff);
+    border-bottom: 1px solid var(--colorNeutralStroke3, #f0f0f0);
+    border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    font-size: var(--fontSizeBase200, 12px);
+}
+
+.CalendarView-tlLabel:hover .CalendarView-eventMenu,
+.CalendarView-tlLabel:focus-within .CalendarView-eventMenu {
+    opacity: 1;
+}
+
+.CalendarView-tlEmpty {
+    align-self: center;
+}
+
+/*
+  The bar is the month view's chip laid on its side: the option colour as a
+  leading edge, brand otherwise, the body a tint. It sits over the day cells
+  of its row (same grid row, its own columns, higher z-index) and its text
+  clips rather than wraps because the height is the row's.
+*/
+.CalendarView-tlBar {
+    position: relative;
+    z-index: 1;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--spacingHorizontalXXS, 2px);
+    min-width: 0;
+    height: calc(var(--CalendarView-tlRow) - 8px);
+    margin: 4px 2px;
+    padding: 0 var(--spacingHorizontalXS, 4px);
+    border-inline-start: 3px solid var(--colorBrandStroke1, #0f6cbd);
+    border-radius: var(--borderRadiusSmall, 2px);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+    font-size: var(--fontSizeBase200, 12px);
+    line-height: 20px;
+    overflow: hidden;
+    /* The control turns pointer moves into days itself; the browser must not scroll or select instead. */
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+
+.CalendarView-tlBar.is-allDay {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
+.CalendarView-tlBar.is-continued {
+    border-inline-start-color: transparent;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    margin-inline-start: 0;
+}
+
+.CalendarView-tlBar.is-continuing {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+    margin-inline-end: 0;
+}
+
+.CalendarView-tlBar.is-moving {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Held by the pointer: lifted, and above every other bar while it crosses them. */
+.CalendarView-tlBar.is-held {
+    z-index: 2;
+    box-shadow: var(--shadow4, 0 2px 4px rgba(0, 0, 0, 0.14));
+    cursor: grabbing;
+}
+
+.CalendarView-timeline.is-dragging {
+    cursor: grabbing;
+}
+
+.CalendarView-tlBarTitle {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+  The resize handles: the bar's own ends, 8px wide, with a column-resize
+  cursor and nothing drawn until hovered — a visible grip on every bar would
+  be noise on a month of one-day events. They are pointer-only by design;
+  the keyboard path is the menu in the label column.
+*/
+.CalendarView-tlHandle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.CalendarView-tlHandle.is-start {
+    inset-inline-start: 0;
+}
+
+.CalendarView-tlHandle.is-end {
+    inset-inline-end: 0;
+}
+
+.CalendarView-tlBar:hover .CalendarView-tlHandle::after {
+    content: '';
+    position: absolute;
+    top: 25%;
+    bottom: 25%;
+    inset-inline-start: 3px;
+    width: 2px;
+    border-radius: 1px;
+    background-color: var(--colorNeutralForeground3, #616161);
+}
+
+/* Narrow: a shorter label, tighter days. The grid still scrolls, so nothing is hidden. */
+.CalendarView--narrow .CalendarView-timeline {
+    --CalendarView-tlLabel: 112px;
+    --CalendarView-tlDay: 28px;
+}
+
+.CalendarView--narrow .CalendarView-tlLabel .CalendarView-eventBadge,
+.CalendarView--narrow .CalendarView-tlBar .CalendarView-eventTime {
+    display: none;
+}
+
 @media (forced-colors: active) {
-    .CalendarView-event {
+    .CalendarView-event,
+    .CalendarView-tlBar {
         border: 1px solid CanvasText;
         border-inline-start-width: 3px;
     }
 
-    .CalendarView-day.is-today .CalendarView-dayNumber {
+    .CalendarView-day.is-today .CalendarView-dayNumber,
+    .CalendarView-tlHead.is-today .CalendarView-dayNumber {
+        outline: 2px solid Highlight;
+    }
+
+    /* The today and weekend tints are backgrounds, which forced colours erase; the header outline above is what survives. */
+    .CalendarView-tlBar.is-held {
         outline: 2px solid Highlight;
     }
 }

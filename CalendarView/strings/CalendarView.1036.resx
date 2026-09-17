@@ -108,13 +108,16 @@
     <value>Vue par défaut</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>La vue dans laquelle le calendrier s’ouvre. L’utilisateur peut en changer à tout moment.</value>
+    <value>La vue dans laquelle le calendrier s’ouvre : une grille mensuelle, une semaine ou une chronologie avec une ligne par événement. L’utilisateur peut en changer à tout moment.</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>Mois</value>
   </data>
   <data name="View_Week" xml:space="preserve">
     <value>Semaine</value>
+  </data>
+  <data name="View_Timeline" xml:space="preserve">
+    <value>Chronologie</value>
   </data>
   <data name="WeekStart_Name" xml:space="preserve">
     <value>Début de semaine</value>
@@ -244,6 +247,27 @@
   </data>
   <data name="CalendarView_MoveLaterWeek" xml:space="preserve">
     <value>Une semaine plus tard</value>
+  </data>
+  <data name="CalendarView_StartEarlier" xml:space="preserve">
+    <value>Commencer un jour plus tôt</value>
+  </data>
+  <data name="CalendarView_StartLater" xml:space="preserve">
+    <value>Commencer un jour plus tard</value>
+  </data>
+  <data name="CalendarView_EndEarlier" xml:space="preserve">
+    <value>Terminer un jour plus tôt</value>
+  </data>
+  <data name="CalendarView_EndLater" xml:space="preserve">
+    <value>Terminer un jour plus tard</value>
+  </data>
+  <data name="CalendarView_New" xml:space="preserve">
+    <value>Nouveau</value>
+  </data>
+  <data name="CalendarView_TimelineEvents" xml:space="preserve">
+    <value>Événements</value>
+  </data>
+  <data name="CalendarView_NoEvents" xml:space="preserve">
+    <value>Aucun événement ce mois-ci.</value>
   </data>
   <data name="CalendarView_Moving" xml:space="preserve">
     <value>Déplacement…</value>

@@ -108,13 +108,16 @@
     <value>Standardansicht</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>Die Ansicht, in der der Kalender geöffnet wird. Der Benutzer kann jederzeit wechseln.</value>
+    <value>Die Ansicht, in der der Kalender geöffnet wird: ein Monatsraster, eine Woche oder eine Zeitleiste mit einer Zeile pro Ereignis. Der Benutzer kann jederzeit wechseln.</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>Monat</value>
   </data>
   <data name="View_Week" xml:space="preserve">
     <value>Woche</value>
+  </data>
+  <data name="View_Timeline" xml:space="preserve">
+    <value>Zeitleiste</value>
   </data>
   <data name="WeekStart_Name" xml:space="preserve">
     <value>Wochenbeginn</value>
@@ -244,6 +247,27 @@
   </data>
   <data name="CalendarView_MoveLaterWeek" xml:space="preserve">
     <value>Eine Woche später</value>
+  </data>
+  <data name="CalendarView_StartEarlier" xml:space="preserve">
+    <value>Einen Tag früher beginnen</value>
+  </data>
+  <data name="CalendarView_StartLater" xml:space="preserve">
+    <value>Einen Tag später beginnen</value>
+  </data>
+  <data name="CalendarView_EndEarlier" xml:space="preserve">
+    <value>Einen Tag früher enden</value>
+  </data>
+  <data name="CalendarView_EndLater" xml:space="preserve">
+    <value>Einen Tag später enden</value>
+  </data>
+  <data name="CalendarView_New" xml:space="preserve">
+    <value>Neu</value>
+  </data>
+  <data name="CalendarView_TimelineEvents" xml:space="preserve">
+    <value>Ereignisse</value>
+  </data>
+  <data name="CalendarView_NoEvents" xml:space="preserve">
+    <value>Keine Ereignisse in diesem Monat.</value>
   </data>
   <data name="CalendarView_Moving" xml:space="preserve">
     <value>Wird verschoben…</value>

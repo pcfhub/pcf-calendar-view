@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
-import { CalendarViewControl, IProps, Metadata, Row } from './components/CalendarViewControl';
+import { CalendarViewControl, Edge, IProps, Metadata, Row } from './components/CalendarViewControl';
 import {
     Behavior,
     ROLES,
     Wall,
     behaviorOf,
+    compareDay,
     dateForWrite,
     dayKey,
     formParameterDay,
@@ -160,11 +161,12 @@ function userOffsetOf(
  * not honoured, the calendar shows whatever the view loaded and says so.
  *
  * **This control writes.** Moving an event writes the start column (and the
- * end, shifted by the same days) — through the record where the record
- * allows it, through `webAPI.updateRecord` where it does not — and the event
- * moves on screen before the write resolves. `pending` holds what this
- * control has asserted and not yet seen confirmed, `reconcile()` retires
- * entries as the data catches up, and the `.catch()` puts an event back.
+ * end, shifted by the same days); resizing one on the timeline writes the
+ * one column that moved — through the record where the record allows it,
+ * through `webAPI.updateRecord` where it does not — and the event moves on
+ * screen before the write resolves. `pending` holds what this control has
+ * asserted and not yet seen confirmed, `reconcile()` retires entries as the
+ * data catches up, and the `.catch()` puts an event back.
  *
  * **A date's meaning is decided by metadata that arrives late.** Whether a
  * value is a whole day or an instant in the user's zone is the column's
@@ -193,7 +195,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     /** The user's offset per UTC day, so `getTimeZoneOffsetMinutes` is asked once per day rather than once per event per render. */
     private readonly offsetByDay = new Map<string, number>();
 
-    /** Moves asserted locally and not yet confirmed: record id → the day key the start now sits on. */
+    /** Moves and resizes asserted locally and not yet confirmed: record id → where both ends now sit. */
     private readonly pending = new Map<string, { start: Wall; end: Wall | null }>();
 
     /** Events with a write in flight, so the component can show them as busy. */
@@ -230,7 +232,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
         const getString = (id: string): string => context.resources.getString(id);
         const names = (context.userSettings as { dateFormattingInfo?: IProps['names'] } | undefined)?.dateFormattingInfo;
-        const view = context.parameters.defaultView.raw;
+        const view = context.parameters.defaultView.raw as string | null;
 
         const props: IProps = {
             rows: this.rows(dataset, start, end, title, color),
@@ -245,7 +247,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             canCreate: (context.parameters.allowCreate.raw ?? true) && formOpener(context) !== null,
             openOnEventClick: context.parameters.openOnEventClick.raw ?? true,
             showTimes: context.parameters.showTimes.raw ?? true,
-            defaultView: view === 'week' ? 'week' : 'month',
+            defaultView: view === 'week' || view === 'timeline' ? view : 'month',
             weekStart: context.parameters.weekStart.raw,
             moving: [...this.moving],
             moveError: this.moveError,
@@ -268,7 +270,9 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             today: dayKey(this.todayWall(userOffset)),
             initialDay: (context.parameters.initialDate.raw ?? '').trim(),
             onRangeChange: (first: Wall, last: Wall): void => this.applyRange(dataset, start, end, first, last),
-            onMove: (recordId: string, days: number): void => this.moveEvent(context, dataset, recordId, days),
+            onMove: (recordId: string, days: number): void => this.adjustEvent(context, dataset, recordId, days, days),
+            onResize: (recordId: string, edge: Edge, days: number): void =>
+                this.adjustEvent(context, dataset, recordId, edge === 'start' ? days : 0, edge === 'end' ? days : 0),
             onSelectDay: (day: Wall): void => this.selectDay(day),
             onCreate: (day: Wall): void => this.createEvent(context, dataset, day),
             onOpenRecord: (id: string): void => this.openRecord(dataset, id),
@@ -389,8 +393,16 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
     /**
      * Drop the overrides the data has caught up with: the record now reports
-     * the day this control asked for, or has left the view — which is what a
-     * window filter does to an event dragged out of the month.
+     * the days this control asked for — **both** of them — or has left the
+     * view, which is what a window filter does to an event dragged out of
+     * the month.
+     *
+     * Both, because a resize moves the end alone: the start day already
+     * agrees on the very next pass, and an override retired on the start
+     * would snap the bar back to its old length until the refresh landed.
+     * An unasked `updateView` after `save()` still carries the old value
+     * (measured, `pcf-kanban-board`), so retiring against data is the only
+     * honest rule.
      *
      * Reads only. Called from `updateView`, so a mutator here would loop.
      */
@@ -407,10 +419,21 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
                 continue;
             }
 
-            const behavior = this.metadata?.startBehavior ?? 'unknown';
-            const actual = wallOf(record.getValue(start.name), behavior, userOffset);
+            const actualStart = wallOf(record.getValue(start.name), this.metadata?.startBehavior ?? 'unknown', userOffset);
+            const startAgrees = actualStart !== null && dayKey(actualStart) === dayKey(wanted.start);
 
-            if (actual && dayKey(actual) === dayKey(wanted.start)) {
+            if (!startAgrees) {
+                continue;
+            }
+
+            if (!end || !wanted.end) {
+                this.pending.delete(id);
+                continue;
+            }
+
+            const actualEnd = wallOf(record.getValue(end.name), this.metadata?.endBehavior ?? 'unknown', userOffset);
+
+            if (actualEnd !== null && dayKey(actualEnd) === dayKey(wanted.end)) {
                 this.pending.delete(id);
             }
         }
@@ -520,25 +543,38 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     }
 
     /**
-     * Move an event by whole days, optimistically.
+     * Move an event's ends by whole days, optimistically.
+     *
+     * A move is both ends by the same days; a resize is one end and `0` for
+     * the other, and writes only the column that moved. An end that was
+     * empty and is resized is given one, measured from the start — the
+     * user dragged the right edge of a one-day bar, and that is what it
+     * means. An end resized to before its start is refused here as well as
+     * clamped in the component.
      *
      * The override goes in and the output is notified *before* the write is
      * sent; the `.catch()` takes the override back out. `refresh()` runs
      * either way, from `finally` — on success it is what eventually retires
      * the override, on failure it repaints from data that never changed.
      */
-    private moveEvent(
+    private adjustEvent(
         context: ComponentFramework.Context<IInputs>,
         dataset: DataSet,
         recordId: string,
-        days: number,
+        startDays: number,
+        endDays: number,
     ): void {
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
         const title = this.roleColumn(dataset, ROLES.title);
         const record = dataset.records[recordId];
 
-        if (!start || !record || days === 0 || !this.canWrite(context, dataset)) {
+        if (!start || !record || (startDays === 0 && endDays === 0) || !this.canWrite(context, dataset)) {
+            return;
+        }
+
+        // A resize needs an end column to write; without one the timeline never offers it.
+        if (startDays !== endDays && !end) {
             return;
         }
 
@@ -553,8 +589,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         }
 
         const fromEnd = current ? current.end : end ? wallOf(record.getValue(end.name), endBehavior, userOffset) : null;
-        const toStart = shiftDays(fromStart, days);
-        const toEnd = fromEnd ? shiftDays(fromEnd, days) : null;
+        const toStart = shiftDays(fromStart, startDays);
+        const toEnd = endDays === 0 ? fromEnd : shiftDays(fromEnd ?? fromStart, endDays);
+
+        if (toEnd && compareDay(toEnd, toStart) < 0) {
+            return;
+        }
+
         const startAllDay = formatOf(start.dataType) === 'date';
         const endAllDay = end ? formatOf(end.dataType) === 'date' : false;
 
@@ -567,11 +608,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         this.selectedDate = dayKey(toStart);
         this.notifyOutputChanged();
 
-        const writes: { column: string; wall: Wall; behavior: Behavior; allDay: boolean }[] = [
-            { column: start.name, wall: toStart, behavior: startBehavior, allDay: startAllDay },
-        ];
+        const writes: { column: string; wall: Wall; behavior: Behavior; allDay: boolean }[] = [];
 
-        if (end && toEnd) {
+        if (startDays !== 0) {
+            writes.push({ column: start.name, wall: toStart, behavior: startBehavior, allDay: startAllDay });
+        }
+
+        if (end && toEnd && endDays !== 0) {
             writes.push({ column: end.name, wall: toEnd, behavior: endBehavior, allDay: endAllDay });
         }
 
@@ -592,12 +635,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     /**
      * The write itself, by whichever route this record allows.
      *
-     * **Two routes, chosen per record.** `record.isEditable(startColumn)`
-     * decides: `true` and every column goes through `setValue` + one
-     * `save()`; `false`, or no write half at all, and the whole change goes
-     * through one `webAPI.updateRecord` with the values spelled the Web API's
-     * way. Never half and half — an end column written by one route and a
-     * start by the other is two round trips that can disagree.
+     * **Two routes, chosen per record.** `record.isEditable(column)` on the
+     * first column written decides: `true` and every column goes through
+     * `setValue` + one `save()`; `false`, or no write half at all, and the
+     * whole change goes through one `webAPI.updateRecord` with the values
+     * spelled the Web API's way. Never half and half — an end column written
+     * by one route and a start by the other is two round trips that can
+     * disagree. A resize writes one column, so the one column decides.
      *
      * `Promise.resolve().then(...)` rather than chaining off `setValue`,
      * which returns `undefined`.

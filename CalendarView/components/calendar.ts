@@ -59,7 +59,12 @@ export interface CalendarEvent {
     color: string | null;
 }
 
-export type View = 'month' | 'week';
+/**
+ * `timeline` is the third: one row per event, the days of a month across, a
+ * bar from start to end. It shares the month's range and navigation and is
+ * the only view where an event's *length* is something the user can change.
+ */
+export type View = 'month' | 'week' | 'timeline';
 
 /** How `Behavior` is read off a metadata node. The numbers are the platform's. */
 export function behaviorOf(node: unknown): Behavior {
@@ -345,12 +350,34 @@ export function weekDays(anchor: Wall, firstDay: number): Wall[] {
     return days;
 }
 
+/**
+ * The days a timeline shows: the anchor's month, the 1st through the last,
+ * with no padding weeks — a bar chart has no reason to show a week of the
+ * next month, and the column count is what sets the day width.
+ */
+export function timelineDays(anchor: Wall): Wall[] {
+    const count = new Date(anchor.year, anchor.month + 1, 0).getDate();
+    const days: Wall[] = [];
+
+    for (let day = 1; day <= count; day += 1) {
+        days.push({ year: anchor.year, month: anchor.month, day, hour: 0, minute: 0 });
+    }
+
+    return days;
+}
+
 /** The first and last day a view shows, inclusive — what the window filter asks for. */
 export function visibleRange(view: View, anchor: Wall, firstDay: number): { first: Wall; last: Wall } {
     if (view === 'week') {
         const days = weekDays(anchor, firstDay);
 
         return { first: days[0], last: days[6] };
+    }
+
+    if (view === 'timeline') {
+        const days = timelineDays(anchor);
+
+        return { first: days[0], last: days[days.length - 1] };
     }
 
     const rows = monthGrid(anchor.year, anchor.month, firstDay);
@@ -364,7 +391,8 @@ export function stepAnchor(view: View, anchor: Wall, direction: -1 | 1): Wall {
         return shiftDays(anchor, 7 * direction);
     }
 
-    // Day 1, so stepping from 31 January lands in February rather than March.
+    // Month and timeline both step by month. Day 1, so stepping from 31
+    // January lands in February rather than March.
     return localWall(new Date(anchor.year, anchor.month + direction, 1, 12));
 }
 
@@ -384,8 +412,65 @@ export function eventsOn(events: CalendarEvent[], day: Wall): CalendarEvent[] {
         .sort((a, b) => Number(b.allDay) - Number(a.allDay) || compareWall(a.start, b.start) || a.title.localeCompare(b.title));
 }
 
-function compareDay(a: Wall, b: Wall): number {
+export function compareDay(a: Wall, b: Wall): number {
     return a.year - b.year || a.month - b.month || a.day - b.day;
+}
+
+/**
+ * The events whose span touches `[first, last]`, in the order a timeline
+ * lists them: by start day, then all-day before timed, then by time, then by
+ * title. One row each — unlike `eventsOn`, an event appears once however
+ * many days it covers.
+ */
+export function eventsInRange(events: CalendarEvent[], first: Wall, last: Wall): CalendarEvent[] {
+    return events
+        .filter((event) => compareDay(event.start, last) <= 0 && compareDay(event.end ?? event.start, first) >= 0)
+        .sort((a, b) => compareDay(a.start, b.start) || Number(b.allDay) - Number(a.allDay) || compareWall(a.start, b.start) || a.title.localeCompare(b.title));
+}
+
+/** Where an event's bar sits on a timeline, as 0-based day columns, both inclusive. */
+export interface Bar {
+    startCol: number;
+    endCol: number;
+    /** The event started before the first day shown, so the bar has no left edge to take hold of. */
+    continued: boolean;
+    /** It ends after the last day shown. */
+    continuing: boolean;
+    /** The whole span in days, shown or not — what a resize is clamped against. */
+    length: number;
+}
+
+/**
+ * The bar for an event on a timeline running `first`..`last`, clipped to
+ * the days shown. An event with no end is one day long. `null` when the
+ * event does not touch the range — `eventsInRange` has already excluded
+ * those, so a `null` here is a caller's mistake rather than a state.
+ */
+export function timelineBar(event: CalendarEvent, first: Wall, last: Wall): Bar | null {
+    const shown = daysBetween(first, last);
+    const from = daysBetween(first, event.start);
+    const to = daysBetween(first, event.end ?? event.start);
+
+    if (to < 0 || from > shown) {
+        return null;
+    }
+
+    return {
+        startCol: Math.max(from, 0),
+        endCol: Math.min(to, shown),
+        continued: from < 0,
+        continuing: to > shown,
+        length: to - from,
+    };
+}
+
+/**
+ * A resize the user is dragging, clamped so the bar never turns inside out:
+ * the start can move later by at most the event's length, the end earlier
+ * by the same. Whole days, and `0` is "put it back".
+ */
+export function clampResize(edge: 'start' | 'end', days: number, length: number): number {
+    return edge === 'start' ? Math.min(days, length) : Math.max(days, -length);
 }
 
 // ---------------------------------------------------------------------------

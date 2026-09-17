@@ -1,6 +1,34 @@
 # Calendar View
 
-A Dataverse view as a month or week calendar, by a date column.
+A Dataverse view as a month, week or timeline calendar, by a date column.
+
+## Not yet measured — the 0.2.0 timeline, built 17 September 2026
+
+Built, suite-green, harness-driven, **not yet on the form.** The walkthrough
+below is what tags it: import 0.2.0 over 0.1.4 on the Accounts form's
+`cll_event` subgrid, switch to Timeline, and answer each row. Any *no* is a
+cut or a fix before the tag, not a note.
+
+| # | Question | What the answer decides |
+| --- | --- | --- |
+| W1 | Drag a bar's **right edge** two days later. Does the record's `cll_ends` change by two days with `cll_starts` untouched, and does the bar hold its length through the refresh? | The one-column write through `setValue` + `save` — every earlier write staged two columns. And the two-day reconcile rule (`pending` retires only when *both* days agree; measured in the rig, not yet against the unasked `updateView` a real `save()` fires). |
+| W2 | Drag a bar sideways inside the form section. Does the pointer stay with the bar past the section's edge, and does the form itself not pan or select text? | Pointer capture under the platform's own event handling; `touch-action: none` and `preventDefault` on `pointerdown`. Try it on the phone client as well. |
+| W3 | Does the month **scroll sideways inside the control** on a narrow section, with the label column held — and does the section stay the width it was, rather than growing to the grid? | The 0.1.3 collapse in a new coat: the scroll container is `.CalendarView-timeline`, capped by the root's `max-width`; a form section that sized itself from the grid would be the same bug the other way. |
+| W4 | On a **narrow** section (< 560px), do the labels shorten to 112px and the days to 28px, and does the badge go? | The `ResizeObserver` class reaching the timeline's variables; the harness cannot paint, so headless Chrome measured it (2026-09-17) and the form has not. |
+| W5 | Press **+ New** with a day selected in the header. Does the quick create open on that day? And with none selected, on today? | `createDay` — the selected day when in range, else today when in range, else the 1st. |
+| W6 | Resize the **end** of an event whose `cll_ends` is empty. Does it get an end two days after its start, at the start's time? | `shiftDays(fromStart, endDays)` on a null end, and whether the platform accepts an end written alone on a record that had none. |
+
+Three things the harness *did* settle on 17 September, before the form:
+
+- **A handle with its own `pointerup` committed one resize twice.** The
+  handle's release ran `finish`, and the event bubbled to the bar, whose
+  handler's closure still held the drag. Handles take only the press now.
+- **`min-width: max-content` on the grid sized every 1fr day track to the
+  longest bar title** — a month 6,414px wide. The 36px track minimum alone is
+  what overflows a narrow control into the sideways scroll.
+- **The month view's narrow rules hid the timeline's labels**, because the
+  label column reuses `.CalendarView-eventTitle`; a phone frame showed
+  thirteen empty rows. The rules are scoped to the chip now.
 
 ## Measured — the 0.0.1 / 0.0.2 probes, 16 September 2026
 
@@ -124,6 +152,9 @@ exists partly so the demo can open on the fixture's month.
 
 ## Not verified
 
+- **Everything under *Not yet measured* above** — the timeline has not been
+  on a form.
+
 - **A true Date Only *behaviour* column** (`Behavior: 2`). Placement reads
   its UTC components and the API route sends a bare day, both from the
   reference; `cll_dueon` looked like one and was User Local underneath, so
@@ -142,4 +173,17 @@ exists partly so the demo can open on the fixture's month.
 
 The zone-gap measurement, the form-parameter spelling, the nested filter and
 the User-Local-as-Date-Only trap are in the skill's *A date read through a
-dataset*; this file keeps the numbers and the dates.
+dataset*; this file keeps the numbers and the dates. The rig's
+host-that-changes-an-input (`handle.setInput`, and the harness page's inputs
+box driving the mounted control) is in the template and the skill's rig rules
+(0.40.0); the timeline's pointer-capture drag joins *A date read through a
+dataset* once W1–W6 are answered.
+
+## Screenshots
+
+Headless Chrome against `dev/preview.html` on the harness server, at
+`--force-device-scale-factor=2`, `--virtual-time-budget=4000`,
+`--hide-scrollbars`, with `?fixture=demo&date=2026-09-14&zone=-300&width=760`
+and `&view=month|week|timeline`; window `792×540`, `792×300` and `792×560`.
+The narrow check is the same page at `width=373` in a `405×420` window. New
+file names on every retake — the hub's mirror never re-fetches a path.

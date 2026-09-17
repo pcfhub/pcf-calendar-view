@@ -3,9 +3,9 @@
 
   "slug": "pcf-calendar-view",
   "name": "Calendar View",
-  "tagline": "A Dataverse view as a month or week calendar, by a date column — drag to reschedule, click a day to create.",
+  "tagline": "A Dataverse view as a month, week or timeline calendar, by a date column — drag to reschedule, drag a bar's edge to resize, click a day to create.",
   "category": "data",
-  "tags": ["react", "dataset", "calendar", "month", "week", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
+  "tags": ["react", "dataset", "calendar", "timeline", "gantt", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
 
   "control": {
     "namespace": "PCFHub",
@@ -27,7 +27,7 @@
 
   "media": {
     "logo": "media/logo.png",
-    "screenshots": ["media/screenshot-month.png", "media/screenshot-week.png"]
+    "screenshots": ["media/screenshot-month-v2.png", "media/screenshot-timeline.png", "media/screenshot-week-v2.png"]
   },
 
   "demo": {
@@ -42,6 +42,7 @@
       "Events carry no colour. The Kind column is bound as the colour role, and on a form each event takes its option’s colour from the option set’s metadata; the harness has no option set, so the label shows as a badge in the week view and the edge stays brand blue.",
       "Stepping to another month does not fetch it. On a form the control sends the visible range to the server as a filter — start ≤ last day AND (end ≥ first day OR end is empty) — and refreshes; the harness discards filters, so every fixture record is loaded at once and the other months are simply empty.",
       "Dragging an event changes nothing in Dataverse. The control writes through the record where the platform allows it and through webAPI.updateRecord() otherwise, and the harness mocks both — the event still moves, because the control places it optimistically and only retires that override once refreshed data agrees. The movedRecordId and selectedDate outputs update either way.",
+      "Resizing a bar on the timeline changes nothing in Dataverse either. Dragging an edge writes only the column that moved — the end, or the start — by the same two routes, and the bar keeps its new length here for the same reason a moved event keeps its day.",
       "There is no + on the days. Creating opens the table’s quick create form through navigation.openForm with the day passed as a form parameter, and the harness has no forms to open, so the button is hidden here the way it is in a canvas app.",
       "Load more never appears. The harness puts every fixture record on a single page and reports hasNextPage as false; on a form a month with more events than the page size offers the rest.",
       "Clicking an event calls dataset.openDatasetItem(), which the harness logs as a mock call. The openedRecordId output still updates."
@@ -62,6 +63,21 @@
           "pageSize": 50
         },
         "isDefault": true
+      },
+      {
+        "slug": "timeline",
+        "name": "Timeline",
+        "description": "September as one row per event with a bar from start to end. Drag a bar to move it, or its right edge to make it longer; the month scrolls sideways.",
+        "props": {
+          "defaultView": "timeline",
+          "weekStart": "auto",
+          "initialDate": "2026-09-14",
+          "allowMove": true,
+          "allowCreate": true,
+          "openOnEventClick": true,
+          "showTimes": true,
+          "pageSize": 50
+        }
       },
       {
         "slug": "week",

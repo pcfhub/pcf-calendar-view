@@ -1,6 +1,6 @@
 # Calendar View
 
-A Dataverse view as a month or week calendar, by a date column.
+A Dataverse view as a month, week or timeline calendar, by a date column.
 
 [![Build](https://github.com/pcfhub/pcf-calendar-view/actions/workflows/build.yml/badge.svg)](https://github.com/pcfhub/pcf-calendar-view/actions/workflows/build.yml)
 [![Release](https://github.com/pcfhub/pcf-calendar-view/actions/workflows/release.yml/badge.svg)](https://github.com/pcfhub/pcf-calendar-view/actions/workflows/release.yml)
@@ -30,11 +30,13 @@ recompiles it.
 
 ## What it does
 
-Binds a Dataverse view and lays its records out as a month or a week, by a date
-column. Dragging an event to another day writes the new date back to the record;
-pressing **+** on a day opens the quick create form with that day filled in. The
-subgrid this replaces can show the same rows, but it cannot show *which days*
-they fall on, and a list of dates is the one shape a grid does not have.
+Binds a Dataverse view and lays its records out as a month, a week or a
+timeline — one row per event, a bar from start to end — by a date column.
+Dragging an event to another day writes the new date back to the record;
+dragging an end of a bar on the timeline writes that one column; pressing **+**
+opens the quick create form with the day filled in. The subgrid this replaces
+can show the same rows, but it cannot show *which days* they fall on, and a
+list of dates is the one shape a grid does not have.
 
 Three decisions a reader would otherwise question.
 
@@ -66,8 +68,19 @@ control retires its override once refreshed data agrees, and puts the event
 back with a message if the write is refused.
 
 Every event also carries a **⋯** menu with *a day earlier / later* and *a week
-earlier / later*. HTML5 drag-and-drop has no keyboard equivalent, so a calendar
-that only supported dragging could not be operated without a mouse.
+earlier / later* — and on the timeline *start* and *end a day earlier / later*.
+HTML5 drag-and-drop has no keyboard equivalent, so a calendar that only
+supported dragging could not be operated without a mouse.
+
+**The timeline drags with pointer capture, not HTML5 drag-and-drop.** A month
+chip has a day cell to land on; a bar has none — it moves by the distance
+dragged — and `dragstart` carries no pointer position. So a bar takes the
+pointer on `pointerdown`, turns each move into whole days by the width of one
+day column, and commits on `pointerup`; a handle takes only the press, and the
+moves and the release bubble to the bar, because a handle with its own
+`pointerup` committed one resize twice. A resize holds its override until the
+data agrees on **both** days — the start already agrees on the very next pass,
+and retiring on it alone snapped the bar back until the refresh landed.
 
 ## Properties
 
@@ -79,14 +92,14 @@ are required; every column bound to a role must be in the view.
 | Start | `startField` | DateAndTime.DateOnly | DateAndTime.DateAndTime | **yes** | When the event starts, and the column a move writes. |
 | End | `endField` | DateAndTime.DateOnly | DateAndTime.DateAndTime | no | When it ends, so it spans its days. Shifted with the start. |
 | Title | `titleField` | SingleLine.Text | **yes** | The event's text. |
-| Colour | `colorField` | OptionSet | no | A choice column whose option colours colour the events; its label is a badge in the week view. |
+| Colour | `colorField` | OptionSet | no | A choice column whose option colours colour the events; its label is a badge in the week view and on the timeline. |
 
 | Property | Type | Usage | Default | What it controls |
 | --- | --- | --- | --- | --- |
-| `defaultView` | Enum `month` | `week` | input | `month` | The view the calendar opens in. |
+| `defaultView` | Enum `month` | `week` | `timeline` | input | `month` | The view the calendar opens in. |
 | `weekStart` | Enum `auto` | `sunday` | `monday` | input | `auto` | The first day of the week; `auto` follows the user's personal options. |
 | `initialDate` | SingleLine.Text | input | *(empty — today)* | A `yyyy-MM-dd` to open on. |
-| `allowMove` | TwoOptions | input | on | Whether events can be dragged or moved from their menu. |
+| `allowMove` | TwoOptions | input | on | Whether events can be dragged or moved from their menu — and, on the timeline, resized by their edges. |
 | `allowCreate` | TwoOptions | input | on | Whether each day offers a **+** (model-driven only). |
 | `openOnEventClick` | TwoOptions | input | on | Whether clicking an event opens its record. |
 | `showTimes` | TwoOptions | input | on | Whether a timed event shows its start time. |

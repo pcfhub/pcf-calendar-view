@@ -8,11 +8,27 @@ order: 7
 
 ## No hour grid
 
-A week is seven columns of events in time order, and a month is whole days.
-Events are not drawn to scale against the hours of the day, do not overlap
-visually, and cannot be dragged to a different *time* — only to a different
-day, with their time of day kept. Use the **⋯** menu or drag for the day; open
-the record for the time.
+A week is seven columns of events in time order, a month is whole days, and
+the timeline's bars are whole days. Events are not drawn to scale against the
+hours of the day, do not overlap visually, and cannot be dragged to a
+different *time* — only to a different day, with their time of day kept; a
+bar's edge moves its end by whole days too. Use the **⋯** menu or drag for
+the day; open the record for the time.
+
+## The timeline's edges are pointer-only
+
+The resize handles on a bar respond to a mouse, a pen or a finger, and to
+nothing else — there is no keyboard focus on a bar, because the bar is a
+picture of the row's title. Every change a handle makes is also in the
+row's **⋯** menu, a day at a time, which is the keyboard route. A finger on
+a bar drags the bar rather than scrolling the month; scroll from the header
+or the empty cells.
+
+## Not a Gantt chart
+
+The timeline draws one bar per record and nothing between them: no
+dependencies, no progress, no critical path, no grouping into lanes. It is
+the calendar's third view, not a project planner.
 
 ## The range filter is model-driven only
 

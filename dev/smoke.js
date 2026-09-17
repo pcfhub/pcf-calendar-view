@@ -579,6 +579,124 @@ opening.props().onOpenRecord('e3');
 
 check('opening an event goes through openDatasetItem with the named reference, and reports the id', opening.calls().some((call) => call.startsWith('openDatasetItem')) && opening.outputs().openedRecordId === 'e3', opening.calls().join(' '));
 
+/* -------------------------------------------------------- timeline */
+
+/*
+ * The third view. One row per event, the days of the month across, a bar
+ * from start to end — and the placement decisions are all in attributes the
+ * markup carries: `data-day` on each column header, `data-from`/`data-to`
+ * on each bar as 0-based day columns.
+ */
+const timeline = bind({ inputs: { defaultView: 'timeline' }, userTimeZoneOffset: -300 });
+const timelineMarkup = markup(timeline);
+
+/** The bars drawn, keyed by record id: their day columns and classes. */
+function bars(html) {
+    const found = {};
+
+    for (const hit of html.matchAll(/class="(CalendarView-tlBar[^"]*)"[^>]*data-event="([^"]+)" data-from="(\d+)" data-to="(\d+)"/g)) {
+        found[hit[2]] = { classes: hit[1], from: Number(hit[3]), to: Number(hit[4]) };
+    }
+
+    return found;
+}
+
+check('the timeline is passed down and drawn as one', timeline.props().defaultView === 'timeline' && /CalendarView--timeline/.test(timelineMarkup) && /class="CalendarView-timeline"/.test(timelineMarkup), timelineMarkup.slice(0, 200));
+
+check('with the days of the month as columns — thirty for September, no padding weeks', (timelineMarkup.match(/CalendarView-tlHead[^>]*data-day="2026-09-/g) || []).length === 30 && !timelineMarkup.includes('data-day="2026-08-30"'), String((timelineMarkup.match(/data-day=/g) || []).length));
+
+check('and a month heading, as the month view has', timelineMarkup.includes('September 2026'), '');
+
+const rows = (timelineMarkup.match(/class="CalendarView-tlLabel"/g) || []).length;
+
+check('one row per event that touches the month — the October review is not one', rows === 4 && !timelineMarkup.includes('Quarterly review'), `${rows} rows`);
+
+const drawn = bars(timelineMarkup);
+
+check('a three-day event is one bar spanning its days: the 16th to the 18th are columns 15 to 17', drawn.e2 && drawn.e2.from === 15 && drawn.e2.to === 17, JSON.stringify(drawn.e2));
+
+check('an event with no end is a one-day bar', drawn.e3 && drawn.e3.from === drawn.e3.to && drawn.e3.from === 20, JSON.stringify(drawn.e3));
+
+check('and the evening dinner sits on the 14th for a UTC-5 user', drawn.e1 && drawn.e1.from === 13, JSON.stringify(drawn.e1));
+
+check('but on the 15th for one at UTC+10', bars(markup(bind({ inputs: { defaultView: 'timeline' }, userTimeZoneOffset: 600 }))).e1.from === 14, '');
+
+check('an end before its start is a one-day bar, not one drawn backwards', drawn.e4 && drawn.e4.from === drawn.e4.to, JSON.stringify(drawn.e4));
+
+check('the rows are in start order', timelineMarkup.indexOf('title="Board dinner"') < timelineMarkup.indexOf('title="Offsite"') && timelineMarkup.indexOf('title="Offsite"') < timelineMarkup.indexOf('title="Dentist"'), '');
+
+check('today is a column with aria-current on its header', /CalendarView-tlHead is-today[^>]*data-day="2026-09-14"[^>]*>[\s\S]*?aria-current="date"/.test(timelineMarkup), '');
+
+/*
+ * The event that spans in from last month: a bar with no left edge to take
+ * hold of, clipped at column 0. The fixture's October review (e5, on the
+ * first page) is rebound as one that started 21 August and ends on the 2nd.
+ */
+const spanning = bind({
+    inputs: { defaultView: 'timeline' },
+    userTimeZoneOffset: -300,
+    records: fixture.records.map((row) => (row.id === 'e5' ? { ...row, values: { ...row.values, scheduledstart: '2026-08-21T20:00:00Z', scheduledend: '2026-09-02T23:00:00Z' } } : row)),
+});
+const spanningBars = bars(markup(spanning));
+
+check('an event that started last month is clipped at the first column and marked continued', spanningBars.e5 && spanningBars.e5.from === 0 && spanningBars.e5.to === 1 && /is-continued/.test(spanningBars.e5.classes), JSON.stringify(spanningBars.e5));
+
+check('and has no start handle to drag, only an end one', (() => {
+    const bar = /<div class="CalendarView-tlBar[^"]*is-continued[^"]*"[\s\S]*?<\/div>/.exec(markup(spanning));
+
+    return Boolean(bar) && !bar[0].includes('is-start') && bar[0].includes('is-end');
+})(), '');
+
+check('the resize handles are offered where the record can be written and an end is bound', /CalendarView-tlHandle is-start/.test(timelineMarkup) && /CalendarView-tlHandle is-end/.test(timelineMarkup), '');
+
+check('and not where the maker turned moving off', !/CalendarView-tlHandle/.test(markup(bind({ inputs: { defaultView: 'timeline', allowMove: false } }))), '');
+
+check('nor where no end role is bound — there is no column for a resize to write', !/CalendarView-tlHandle/.test(markup(bind({ inputs: { defaultView: 'timeline' }, columns: fixture.columns.map((column) => (column.alias === 'endField' ? { ...column, alias: 'scheduledend' } : column)) }))), '');
+
+check('the keyboard path offers the four resizes beside the two moves', (timelineMarkup.match(/resx:CalendarView_(StartEarlier|StartLater|EndEarlier|EndLater)/g) || []).length === 4 * rows, String((timelineMarkup.match(/resx:CalendarView_(StartEarlier|StartLater|EndEarlier|EndLater)/g) || []).length));
+
+check('the timeline has a New button where the host can open a form', /CalendarView-new/.test(timelineMarkup) && timelineMarkup.includes('resx:CalendarView_New'), '');
+
+check('and none on canvas', !/CalendarView-new/.test(markup(bind({ inputs: { defaultView: 'timeline' }, host: 'canvas' }))), '');
+
+check('an empty month says so instead of drawing an empty grid', markup(bind({ inputs: { defaultView: 'timeline', initialDate: '2026-11-10' } })).includes('resx:CalendarView_NoEvents'), '');
+
+check('a timeline reports the month as its window, first to last', (() => {
+    const w = bind({ inputs: { defaultView: 'timeline' } });
+
+    w.props().onRangeChange(W(2026, 9, 1), W(2026, 9, 30));
+
+    const expression = w.handle.dataset.filtering.getFilter();
+
+    return Boolean(expression) && expression.conditions[0].value === '2026-09-30' && expression.filters[0].conditions[0].value === '2026-09-01';
+})(), '');
+
+/* --------------------------------------------- an input changed after init */
+
+/*
+ * The hub's demo is a third host: it changes inputs on a mounted control
+ * when a visitor switches preset, and 0.1.3 shipped a defaultView that was
+ * read once at mount. The rig can now do the same. What it proves is the
+ * control's half — the new value is read on the next pass and passed down,
+ * with the platform naming it in updatedProperties — not the component's
+ * effect that re-applies it, which a static render cannot hold state for.
+ */
+const switched = bind({});
+
+check('opens in the month view', switched.props().defaultView === 'month', switched.props().defaultView);
+
+switched.handle.setInput('defaultView', 'timeline');
+switched.settle();
+
+check('an input changed after init is read on the next pass rather than kept from the first', switched.props().defaultView === 'timeline' && /CalendarView--timeline/.test(markup(switched)), switched.props().defaultView);
+
+check('and the pass that carried it settled in one', switched.driven.passes === 1 && !switched.driven.looping, `${switched.driven.passes} passes`);
+
+switched.handle.setInput('initialDate', '2026-03-10');
+switched.settle();
+
+check('the same for initialDate', switched.props().initialDay === '2026-03-10' && markup(switched).includes('March 2026'), switched.props().initialDay);
+
 /* ------------------------------------------------------- creating */
 
 /* ---------------------------------------------------------- moving */
@@ -724,6 +842,84 @@ check('opening an event goes through openDatasetItem with the named reference, a
     await flush();
 
     check('dropping an event back on its own day is not a write', !zeroMove.calls().some((call) => call.startsWith('record.setValue')), zeroMove.calls().join(' '));
+
+    /* ------------------------------------------------------ resizing */
+
+    /*
+     * A resize is a move of one end. It writes the one column that moved,
+     * and the override holds until the data agrees on **both** days — the
+     * start already agrees on the very next pass, and retiring on it alone
+     * snapped the bar back to its old length until the refresh landed.
+     */
+    const resized = bind({ inputs: { defaultView: 'timeline' }, userTimeZoneOffset: -300 });
+
+    resized.props().onResize('e2', 'end', 2);
+
+    check('resizing an end repaints immediately and reports the record', resized.notifications() >= 1 && resized.outputs().movedRecordId === 'e2', JSON.stringify(resized.outputs()));
+
+    resized.settle();
+
+    check('with the bar two days longer before the write resolves', bars(markup(resized)).e2.to === 19 && bars(markup(resized)).e2.from === 15, JSON.stringify(bars(markup(resized)).e2));
+
+    await flush();
+
+    const resizeStaged = resized.calls().filter((call) => call.startsWith('record.setValue'));
+
+    check('writing the end column only — the start is untouched', resizeStaged.length === 1 && resizeStaged[0].startsWith('record.setValue("scheduledend='), resizeStaged.join(' ') || 'no setValue');
+
+    check('two days later with its time of day kept', resizeStaged[0].includes(local(2026, 9, 20, 11, 0).toISOString()), resizeStaged[0]);
+
+    check('then one save', resized.calls().filter((call) => call.startsWith('record.save')).length === 1, '');
+
+    resized.settle();
+
+    check('the override holds across a refresh that still reports the old end', bars(markup(resized)).e2.to === 19 && !resized.props().moving.includes('e2'), JSON.stringify(bars(markup(resized)).e2));
+
+    resized.handle.reread();
+    resized.settle();
+
+    check('and once the record agrees on both days the bar is drawn from data at the same place', bars(markup(resized)).e2.to === 19, JSON.stringify(bars(markup(resized)).e2));
+
+    const startResized = bind({ userTimeZoneOffset: -300 });
+
+    startResized.props().onResize('e2', 'start', 1);
+    await flush();
+
+    const startStaged = startResized.calls().filter((call) => call.startsWith('record.setValue'));
+
+    check('resizing the start writes the start column only', startStaged.length === 1 && startStaged[0].includes(`scheduledstart=\\"${local(2026, 9, 17, 9, 0).toISOString()}`), startStaged.join(' ') || 'no setValue');
+
+    const given = bind({ userTimeZoneOffset: -300 });
+
+    given.props().onResize('e3', 'end', 2);
+    await flush();
+
+    const givenStaged = given.calls().find((call) => call.startsWith('record.setValue'));
+
+    check('an event with no end that is resized is given one, measured from its start', Boolean(givenStaged) && givenStaged.includes(`scheduledend=\\"${local(2026, 9, 23, 10, 0).toISOString()}`), givenStaged || 'no setValue');
+
+    const insideOut = bind({ userTimeZoneOffset: -300 });
+
+    insideOut.props().onResize('e2', 'end', -5);
+    await flush();
+
+    check('an end dragged before its start is refused, not written', !insideOut.calls().some((call) => call.startsWith('record.setValue')) && insideOut.notifications() === 0, insideOut.calls().join(' '));
+
+    const endless = bind({ userTimeZoneOffset: -300, columns: fixture.columns.map((column) => (column.alias === 'endField' ? { ...column, alias: 'scheduledend' } : column)) });
+
+    endless.props().onResize('e2', 'end', 1);
+    await flush();
+
+    check('with no end role bound a resize is not a write', !endless.calls().some((call) => call.startsWith('record.setValue')), endless.calls().join(' '));
+
+    const apiResized = bind({ userTimeZoneOffset: -300, quirks: { readOnlyColumns: ['scheduledend'] } });
+
+    apiResized.props().onResize('e2', 'end', 1);
+    await flush();
+
+    const apiResizeCall = apiResized.calls().find((call) => call.startsWith('webAPI.updateRecord'));
+
+    check('an end column the record refuses goes through the Web API, that column alone', Boolean(apiResizeCall) && apiResizeCall.includes('"scheduledend":"2026-09-19T16:00:00.000Z"') && !apiResizeCall.includes('scheduledstart'), apiResizeCall || 'no updateRecord');
 
     /* ------------------------------------------------------ metadata */
 

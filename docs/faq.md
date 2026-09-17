@@ -62,6 +62,19 @@ Not by dragging: a drag changes the day and keeps the time. Open the record
 for the time. An hour grid is the shape this control does not have — see
 [Limitations](limitations.md).
 
+## Can I change how long an event runs?
+
+On the timeline, yes: drag the right edge of its bar to move the end, the
+left edge to move the start, by whole days. Only the column that moved is
+written. The same changes are in the row's **⋯** menu, a day at a time. With
+no End column bound there is nothing to resize and the handles are not shown.
+
+## The timeline shows a bar with no text
+
+A one-day bar is too narrow for a title, so it is drawn as a plain chip and
+the title stays in the row's label on the left, which never scrolls away.
+Bars two days or wider carry the time and the title.
+
 ## Why does the week start on Sunday for me and Monday for a colleague?
 
 **Week starts on** is *Auto*, which follows each user's personal options —

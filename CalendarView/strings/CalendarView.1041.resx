@@ -108,13 +108,16 @@
     <value>既定のビュー</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>カレンダーを開いたときのビュー。ユーザーはいつでも切り替えられます。</value>
+    <value>カレンダーを開いたときのビュー。月のグリッド、週、またはイベントごとに 1 行のタイムライン。ユーザーはいつでも切り替えられます。</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>月</value>
   </data>
   <data name="View_Week" xml:space="preserve">
     <value>週</value>
+  </data>
+  <data name="View_Timeline" xml:space="preserve">
+    <value>タイムライン</value>
   </data>
   <data name="WeekStart_Name" xml:space="preserve">
     <value>週の開始日</value>
@@ -244,6 +247,27 @@
   </data>
   <data name="CalendarView_MoveLaterWeek" xml:space="preserve">
     <value>1 週間後へ</value>
+  </data>
+  <data name="CalendarView_StartEarlier" xml:space="preserve">
+    <value>開始を 1 日前へ</value>
+  </data>
+  <data name="CalendarView_StartLater" xml:space="preserve">
+    <value>開始を 1 日後へ</value>
+  </data>
+  <data name="CalendarView_EndEarlier" xml:space="preserve">
+    <value>終了を 1 日前へ</value>
+  </data>
+  <data name="CalendarView_EndLater" xml:space="preserve">
+    <value>終了を 1 日後へ</value>
+  </data>
+  <data name="CalendarView_New" xml:space="preserve">
+    <value>新規</value>
+  </data>
+  <data name="CalendarView_TimelineEvents" xml:space="preserve">
+    <value>イベント</value>
+  </data>
+  <data name="CalendarView_NoEvents" xml:space="preserve">
+    <value>今月のイベントはありません。</value>
   </data>
   <data name="CalendarView_Moving" xml:space="preserve">
     <value>移動しています…</value>

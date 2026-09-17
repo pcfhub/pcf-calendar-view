@@ -68,6 +68,27 @@ can still step away from it. **Week starts on** is fixed to Monday so the
 calendar agrees with the printed programme whatever the reader's personal
 options say.
 
+## A month of projects, as bars
+
+Engagements on an account form, where the length of each is the point.
+
+| Property | Value |
+| --- | --- |
+| Start | `cr123_startson` |
+| End | `cr123_endson` |
+| Title | `cr123_name` |
+| Colour | `cr123_stage` |
+| Default view | Timeline |
+| Allow move | On |
+| Allow create | On |
+
+Each engagement is a row with a bar from its start to its end, coloured by
+its stage. Dragging a bar moves the whole engagement; dragging its right edge
+extends or shortens it, writing `cr123_endson` alone. An engagement that
+started last month is clipped at the 1st with no left edge to take hold of —
+step back a month to move its start. The **+ New** in the toolbar opens the
+quick create for the selected day.
+
 ## Driving a gallery from the selected day
 
 In a canvas app, bind the calendar to a filtered data source and read
