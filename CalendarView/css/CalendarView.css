@@ -212,6 +212,19 @@
     font-weight: var(--fontWeightSemibold, 600);
 }
 
+/*
+  The selected day: a brand ring around the number, so it reads beside today's
+  filled disc without being mistaken for it. Selecting is what a canvas app
+  reads back and what the timeline's + New creates on, and until the form
+  walkthrough (W5, 2026-09-17) nothing showed it — the quick create opened on
+  the right day and the calendar looked as if nothing had been pressed.
+*/
+.CalendarView-day.is-selected .CalendarView-dayNumber,
+.CalendarView-tlHead.is-selected .CalendarView-dayNumber {
+    box-shadow: inset 0 0 0 2px var(--colorBrandStroke1, #0f6cbd);
+    font-weight: var(--fontWeightSemibold, 600);
+}
+
 /* The "+" appears on hover and on focus, so a month is not a grid of pluses. */
 .CalendarView-dayAdd {
     min-width: 24px;
@@ -587,6 +600,17 @@ button.CalendarView-eventTitle:focus-visible {
     background-color: var(--colorBrandBackground2, #ebf3fc);
 }
 
+/* The selected column, a fainter tint than today's, with the ring on its number above. */
+.CalendarView-tlHead.is-selected,
+.CalendarView-tlCell.is-selected {
+    background-color: var(--colorNeutralBackground1Selected, #ebebeb);
+}
+
+.CalendarView-tlHead.is-today.is-selected,
+.CalendarView-tlCell.is-today.is-selected {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
 /*
   The label column stays put while the days scroll. It is the accessible half
   of the row — title button, menu, busy state — and the only part of a row a
@@ -743,6 +767,12 @@ button.CalendarView-eventTitle:focus-visible {
     .CalendarView-day.is-today .CalendarView-dayNumber,
     .CalendarView-tlHead.is-today .CalendarView-dayNumber {
         outline: 2px solid Highlight;
+    }
+
+    /* The selection ring is a box-shadow, which forced colours drop; a border survives. */
+    .CalendarView-day.is-selected .CalendarView-dayNumber,
+    .CalendarView-tlHead.is-selected .CalendarView-dayNumber {
+        border: 2px solid Highlight;
     }
 
     /* The today and weekend tints are backgrounds, which forced colours erase; the header outline above is what survives. */

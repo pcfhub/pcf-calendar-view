@@ -515,6 +515,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
                     first={range.first}
                     last={range.last}
                     events={eventsInRange(placed, range.first, range.last)}
+                    selectedKey={selected ? dayKey(selected) : ''}
                     onSelectDay={selectDay}
                     onDrop={move}
                     onResizeEdge={resize}
@@ -541,6 +542,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
                                     view={view}
                                     inMonth={view === 'week' || day.month === anchor.month}
                                     isToday={dayKey(day) === props.today}
+                                    isSelected={selected !== null && sameDay(selected, day)}
                                     events={eventsOn(placed, day)}
                                     onSelectDay={selectDay}
                                     onDrop={move}
@@ -579,6 +581,8 @@ interface IDayProps extends IProps {
     view: View;
     inMonth: boolean;
     isToday: boolean;
+    /** The day the user last pressed — what the timeline's + New creates on, and what a canvas app reads back. */
+    isSelected: boolean;
     events: CalendarEvent[];
     onDrop: (id: string, days: number) => void;
 }
@@ -598,6 +602,10 @@ function DayCell(props: IDayProps): React.ReactElement {
 
     if (props.isToday) {
         classes.push('is-today');
+    }
+
+    if (props.isSelected) {
+        classes.push('is-selected');
     }
 
     if (over) {
@@ -646,6 +654,7 @@ function DayCell(props: IDayProps): React.ReactElement {
                     className="CalendarView-dayNumber"
                     disabled={props.disabled}
                     aria-current={props.isToday ? 'date' : undefined}
+                    aria-pressed={props.isSelected}
                     onClick={(): void => props.onSelectDay(day)}
                 >
                     {day.day}
@@ -792,6 +801,8 @@ interface ITimelineProps extends IProps {
     last: Wall;
     /** The events touching the range, one row each, in order. */
     events: CalendarEvent[];
+    /** The selected day's key, or `''` — the column the + New creates on, marked so the user can see it (form walkthrough W5). */
+    selectedKey: string;
     onDrop: (id: string, days: number) => void;
     onResizeEdge: (id: string, edge: Edge, days: number) => void;
 }
@@ -942,13 +953,14 @@ function Timeline(props: ITimelineProps): React.ReactElement {
 
                 {days.map((day, index) => {
                     const isToday = dayKey(day) === props.today;
+                    const isSelected = dayKey(day) === props.selectedKey;
                     const isWeekend = weekday(day) === 0 || weekday(day) === 6;
 
                     return (
                         <div
                             key={dayKey(day)}
                             role="columnheader"
-                            className={`CalendarView-tlHead${isToday ? ' is-today' : ''}${isWeekend ? ' is-weekend' : ''}`}
+                            className={`CalendarView-tlHead${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}${isWeekend ? ' is-weekend' : ''}`}
                             data-day={dayKey(day)}
                             style={at(1, index + 2)}
                         >
@@ -957,6 +969,7 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                                 className="CalendarView-dayNumber"
                                 disabled={props.disabled}
                                 aria-current={isToday ? 'date' : undefined}
+                                aria-pressed={isSelected}
                                 aria-label={`${dayName(props.names, weekday(day), false)} ${day.day} ${monthName(props.names, day.month)}`}
                                 onClick={(): void => props.onSelectDay(day)}
                             >
@@ -1078,7 +1091,7 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                                 <div
                                     key={dayKey(day)}
                                     role="gridcell"
-                                    className={`CalendarView-tlCell${dayKey(day) === props.today ? ' is-today' : ''}${weekday(day) === 0 || weekday(day) === 6 ? ' is-weekend' : ''}`}
+                                    className={`CalendarView-tlCell${dayKey(day) === props.today ? ' is-today' : ''}${dayKey(day) === props.selectedKey ? ' is-selected' : ''}${weekday(day) === 0 || weekday(day) === 6 ? ' is-weekend' : ''}`}
                                     style={at(row, column + 2)}
                                 />
                             ))}

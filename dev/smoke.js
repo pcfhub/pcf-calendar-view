@@ -671,6 +671,19 @@ check('a timeline reports the month as its window, first to last', (() => {
     return Boolean(expression) && expression.conditions[0].value === '2026-09-30' && expression.filters[0].conditions[0].value === '2026-09-01';
 })(), '');
 
+/*
+ * Selecting a day is marked — W5 of the form walkthrough (2026-09-17): the
+ * quick create opened on the pressed day while the calendar showed nothing
+ * pressed. A static render cannot hold the selection across a click, so
+ * the assertion is that the marker exists and is off until something is
+ * selected: no cell wears is-selected on a fresh render, and the day
+ * buttons carry aria-pressed="false", which is the attribute the marker
+ * flips.
+ */
+check('no day is marked selected before one is pressed', !/is-selected/.test(timelineMarkup) && !/is-selected/.test(markup(plain)), '');
+
+check('and every day button carries aria-pressed, the attribute a press flips', (timelineMarkup.match(/aria-pressed="false"/g) || []).length >= 30 && (markup(plain).match(/aria-pressed="false"/g) || []).length >= 35, `${(timelineMarkup.match(/aria-pressed="false"/g) || []).length} / ${(markup(plain).match(/aria-pressed="false"/g) || []).length}`);
+
 /* --------------------------------------------- an input changed after init */
 
 /*

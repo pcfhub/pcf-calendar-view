@@ -2,21 +2,20 @@
 
 A Dataverse view as a month, week or timeline calendar, by a date column.
 
-## Not yet measured — the 0.2.0 timeline, built 17 September 2026
+## Measured — the 0.2.0 timeline walkthrough, 17 September 2026
 
-Built, suite-green, harness-driven, **not yet on the form.** The walkthrough
-below is what tags it: import 0.2.0 over 0.1.4 on the Accounts form's
-`cll_event` subgrid, switch to Timeline, and answer each row. Any *no* is a
-cut or a fix before the tag, not a note.
+On the Accounts form's `cll_event` subgrid, the 0.2.0 build imported over
+0.1.4, the form ~2,000px wide. Six questions, six answers the right way; one
+of them earned a change before the tag.
 
-| # | Question | What the answer decides |
+| # | Question | Measured |
 | --- | --- | --- |
-| W1 | Drag a bar's **right edge** two days later. Does the record's `cll_ends` change by two days with `cll_starts` untouched, and does the bar hold its length through the refresh? | The one-column write through `setValue` + `save` — every earlier write staged two columns. And the two-day reconcile rule (`pending` retires only when *both* days agree; measured in the rig, not yet against the unasked `updateView` a real `save()` fires). |
-| W2 | Drag a bar sideways inside the form section. Does the pointer stay with the bar past the section's edge, and does the form itself not pan or select text? | Pointer capture under the platform's own event handling; `touch-action: none` and `preventDefault` on `pointerdown`. Try it on the phone client as well. |
-| W3 | Does the month **scroll sideways inside the control** on a narrow section, with the label column held — and does the section stay the width it was, rather than growing to the grid? | The 0.1.3 collapse in a new coat: the scroll container is `.CalendarView-timeline`, capped by the root's `max-width`; a form section that sized itself from the grid would be the same bug the other way. |
-| W4 | On a **narrow** section (< 560px), do the labels shorten to 112px and the days to 28px, and does the badge go? | The `ResizeObserver` class reaching the timeline's variables; the harness cannot paint, so headless Chrome measured it (2026-09-17) and the form has not. |
-| W5 | Press **+ New** with a day selected in the header. Does the quick create open on that day? And with none selected, on today? | `createDay` — the selected day when in range, else today when in range, else the 1st. |
-| W6 | Resize the **end** of an event whose `cll_ends` is empty. Does it get an end two days after its start, at the start's time? | `shiftDays(fromStart, endDays)` on a null end, and whether the platform accepts an end written alone on a record that had none. |
+| W1 | Drag a bar's **right edge** two days later. Does `cll_ends` change by two days with `cll_starts` untouched, and does the bar hold its length through the refresh? | **Yes.** The one-column write through `setValue` + `save` lands, and the override held across the unasked `updateView` a real `save()` fires — the both-days reconcile rule, now measured against the platform and not only the rig. |
+| W2 | Drag a bar sideways. Does the pointer stay with the bar, and does the form neither pan nor select? | **Yes** — the drag stays inside the day columns and the form is untouched. Pointer capture works under the platform's event handling. |
+| W3 | Does the month scroll sideways inside the control, and does the section keep its width? | **Yes.** The section stays the same width through the ‹ › arrows; the grid scrolls inside `.CalendarView-timeline`. |
+| W4 | On a narrow section, 112px labels and 28px days, badge gone? | **Yes** — 112 and 28 on a small screen. |
+| W5 | Press **+ New** with a day selected in the header. | **The form opened on the pressed day — and nothing on the calendar showed a day had been pressed.** The selection was real (the quick create's Starts said so) and invisible. Fixed before the tag: the pressed day wears a brand ring on its number and its column a neutral tint in the timeline; the month and week views' day number takes the same ring, which they had never had either. `aria-pressed` on every day button. |
+| W6 | Resize the **end** of an event with no `cll_ends`. | **Yes** — it gets an end the right number of days after its start. |
 
 Four things the harness — and the first look on the form — settled on 17
 September:
@@ -160,8 +159,8 @@ exists partly so the demo can open on the fixture's month.
 
 ## Not verified
 
-- **Everything under *Not yet measured* above** — the timeline has not been
-  on a form.
+- **The timeline on the phone client.** W2 was answered on the web client;
+  a finger on a bar (`touch-action: none`) has not been tried.
 
 - **A true Date Only *behaviour* column** (`Behavior: 2`). Placement reads
   its UTC components and the API route sends a bare day, both from the
@@ -184,8 +183,8 @@ the User-Local-as-Date-Only trap are in the skill's *A date read through a
 dataset*; this file keeps the numbers and the dates. The rig's
 host-that-changes-an-input (`handle.setInput`, and the harness page's inputs
 box driving the mounted control) is in the template and the skill's rig rules
-(0.40.0); the timeline's pointer-capture drag joins *A date read through a
-dataset* once W1–W6 are answered.
+(0.40.0); the timeline's pointer-capture drag is in *The timeline, and a drag with
+nothing to drop on* there (0.40.1 marks it measured).
 
 ## Screenshots
 
