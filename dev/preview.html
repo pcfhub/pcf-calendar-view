@@ -32,6 +32,7 @@
     ?fixture=demo          render demo/records.json instead of dev/fixture.js
     ?view=week             open in the week view (or ?view=timeline)
     ?date=2026-09-14       the day to open on (default: today)
+    ?select=2026-09-09     press that day's number after mount, so a shot shows a selected day
     ?zone=-300             the user's zone, minutes ahead of UTC (default: the browser's)
     ?canvas=1              a canvas host: no webAPI, no utils, no forms
     ?create=0              hide the "+" (manifest default is on)
@@ -169,6 +170,18 @@
         render();
         setTimeout(render, 50);
         setTimeout(render, 300);
+
+        // A selected day for the screenshot: press the header's number the way a
+        // user would, once the range has been fetched and the grid is up.
+        if (params.get('select')) {
+            setTimeout(function () {
+                var button = root.querySelector('[data-day="' + params.get('select') + '"] .CalendarView-dayNumber');
+
+                if (button) {
+                    button.click();
+                }
+            }, 400);
+        }
     })();
 </script>
 </body>

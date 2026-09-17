@@ -192,5 +192,7 @@ Headless Chrome against `dev/preview.html` on the harness server, at
 `--force-device-scale-factor=2`, `--virtual-time-budget=4000`,
 `--hide-scrollbars`, with `?fixture=demo&date=2026-09-14&zone=-300&width=760`
 and `&view=month|week|timeline`; window `792×540`, `792×300` and `792×560`.
-The narrow check is the same page at `width=373` in a `405×420` window. New
+The narrow check is the same page at `width=373` in a `405×420` window. The
+timeline shot adds `&select=2026-09-09`, which presses that day after mount
+so the selection ring and column are in the picture. New
 file names on every retake — the hub's mirror never re-fetches a path.

@@ -12,7 +12,7 @@ to change how long it runs; press **+** to create one.
 
 ::image{src=media/screenshot-month-v2.png alt="A month of appointments, one dragged to a new day" zoom}
 
-::image{src=media/screenshot-timeline.png alt="The same month as a timeline: one row per event, a bar from its start to its end" zoom}
+::image{src=media/screenshot-timeline-selected.png alt="The same month as a timeline: one row per event, a bar from its start to its end, and the 9th selected in the header" zoom}
 
 ## Why this one
 

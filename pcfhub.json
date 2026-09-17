@@ -27,7 +27,7 @@
 
   "media": {
     "logo": "media/logo.png",
-    "screenshots": ["media/screenshot-month-v2.png", "media/screenshot-timeline.png", "media/screenshot-week-v2.png"]
+    "screenshots": ["media/screenshot-month-v2.png", "media/screenshot-timeline-selected.png", "media/screenshot-week-v2.png"]
   },
 
   "demo": {
