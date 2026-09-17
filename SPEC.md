@@ -18,7 +18,15 @@ cut or a fix before the tag, not a note.
 | W5 | Press **+ New** with a day selected in the header. Does the quick create open on that day? And with none selected, on today? | `createDay` — the selected day when in range, else today when in range, else the 1st. |
 | W6 | Resize the **end** of an event whose `cll_ends` is empty. Does it get an end two days after its start, at the start's time? | `shiftDays(fromStart, endDays)` on a null end, and whether the platform accepts an end written alone on a record that had none. |
 
-Three things the harness *did* settle on 17 September, before the form:
+Four things the harness — and the first look on the form — settled on 17
+September:
+
+- **A bar's text is decided by pixels, not by its day count.** The first
+  rule drew text only on a bar spanning two or more days, and on the test
+  form — 2,000px wide, 58px a day — every one-day bar was blank while the
+  month view beside it said "6:00 PM Meeting 4". The day width is measured
+  by a ResizeObserver on the grid now: title from 48px, time as well from
+  120px, a bare chip below that (a phone at 28px a day).
 
 - **A handle with its own `pointerup` committed one resize twice.** The
   handle's release ran `finish`, and the event bubbled to the bar, whose

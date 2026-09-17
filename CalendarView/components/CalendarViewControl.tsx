@@ -835,6 +835,38 @@ function Timeline(props: ITimelineProps): React.ReactElement {
     const interactive = !props.disabled && props.canMove;
     const columns = `var(--CalendarView-tlLabel, 180px) repeat(${days.length}, minmax(var(--CalendarView-tlDay, 36px), 1fr))`;
 
+    /*
+     * How wide a day is, measured — the same ResizeObserver route as the
+     * narrow class. A bar draws its title when it has the pixels for one,
+     * and that is a fact about the form's width, not the bar's day count:
+     * on a wide form a one-day bar is 60px and can carry "Meeting 4", on a
+     * phone it is 28px and cannot. Column count was the first rule and it
+     * left every one-day bar blank on a form 2,000px wide (2026-09-17).
+     * Without an observer (a static render) the count decides.
+     */
+    const [dayWidth, setDayWidth] = React.useState(0);
+
+    React.useEffect(() => {
+        const grid = gridRef.current;
+
+        if (!grid || typeof ResizeObserver !== 'function') {
+            return undefined;
+        }
+
+        const measure = (): void => {
+            const head = grid.querySelector<HTMLElement>('.CalendarView-tlHead');
+
+            setDayWidth(head ? head.getBoundingClientRect().width : 0);
+        };
+
+        const observer = new ResizeObserver(measure);
+
+        observer.observe(grid);
+        measure();
+
+        return () => observer.disconnect();
+    }, [days.length]);
+
     const begin = (pointer: React.PointerEvent<HTMLElement>, event: CalendarEvent, edge: Edge | 'move', bar: Bar): void => {
         if (!interactive || pointer.button !== 0) {
             return;
@@ -950,10 +982,13 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                         ? shifted(event, { start: drag.edge === 'end' ? 0 : drag.days, end: drag.edge === 'start' ? 0 : drag.days })
                         : event;
                     const bar = timelineBar(live, first, last);
-                    // Text only on a bar wide enough to carry it. A one-day bar is 32px, "9:…" is not a time and "S…" is not a
-                    // title; the label column has both, and a bare chip reads as a milestone the way a Gantt draws one.
-                    const wide = Boolean(bar) && (bar as Bar).endCol > (bar as Bar).startCol;
-                    const time = wide && !event.allDay && props.showTimes && !(bar as Bar).continued ? formatTime(event.start, props.names) : null;
+                    // Text only on a bar wide enough to carry it: "S…" is not a title and "9:…" is not a time. The label
+                    // column always has the title, and a bar too narrow for one is a bare chip, the way a Gantt draws a
+                    // milestone. Below 48px nothing; the time joins the title from 120px.
+                    const pixels = bar ? ((bar as Bar).endCol - (bar as Bar).startCol + 1) * dayWidth : 0;
+                    const wide = Boolean(bar) && (dayWidth > 0 ? pixels >= 48 : (bar as Bar).endCol > (bar as Bar).startCol);
+                    const roomForTime = wide && (dayWidth > 0 ? pixels >= 120 : true);
+                    const time = roomForTime && !event.allDay && props.showTimes && !(bar as Bar).continued ? formatTime(event.start, props.names) : null;
                     const resizable = interactive && props.hasEnd && !busy;
                     const barClasses = ['CalendarView-tlBar'];
 
