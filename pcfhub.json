@@ -5,7 +5,8 @@
   "name": "Calendar View",
   "tagline": "A Dataverse view as a month, week or timeline calendar, by a date column — drag to reschedule, drag a bar's edge to resize, click a day to create.",
   "category": "data",
-  "tags": ["react", "dataset", "calendar", "timeline", "gantt", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
+  "hosts": ["canvas", "model-driven"],
+  "tags": ["react", "calendar", "timeline", "gantt", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
 
   "control": {
     "namespace": "PCFHub",
