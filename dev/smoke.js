@@ -539,13 +539,49 @@ check('and where only the Web API can', bind({ quirks: { editableAbsent: true } 
 
 check('but not where neither can', bind({ webAPI: false, quirks: { editableAbsent: true } }).props().canMove === false, '');
 
+/*
+ * **Canvas publishes `updateRecord` and refuses it.** Measured with a host
+ * probe on a real canvas app, 2026-09-22: fifteen of fifteen surfaces present,
+ * the callable ones throwing `Method not implemented.`
+ *
+ * So the Web API fallback in `canWrite` answered `true` on canvas, and a
+ * calendar whose records were not editable offered a drag that could only
+ * fail. The assertion above says "no webAPI" — a host this rig invents, which
+ * canvas is not.
+ *
+ * The *dataset* route is untouched and still works on canvas, which is why
+ * only the fallback is gated: withholding the whole thing would have taken
+ * away a move that works there.
+ */
+check(
+    'nor on canvas, where updateRecord exists and refuses',
+    bind({ host: 'canvas', quirks: { editableAbsent: true } }).props().canMove === false,
+    'the Web API fallback does not answer for canvas',
+);
+
+check(
+    'while a canvas host with editable records still moves, through the dataset',
+    bind({ host: 'canvas' }).props().canMove === true,
+    'the dataset route is untouched',
+);
+
 check('nor when the maker turned moving off', bind({ inputs: { allowMove: false } }).props().canMove === false, '');
 
 check('offers to create where the host has a form to open', plain.props().canCreate === true, '');
 
 check('but not on canvas, which has no forms', bind({ host: 'canvas' }).props().canCreate === false, '');
 
-check('a canvas host still gets a calendar, from what the view loaded', markup(bind({ host: 'canvas' })).includes('data-day="2026-09-14"') && bind({ host: 'canvas' }).props().loadMetadata === null, '');
+/*
+ * **Canvas offers the metadata loader and then refuses it.** It publishes
+ * `utils` and answers `getEntityMetadata: Method not implemented.` from the
+ * call itself — measured on a real canvas app, 2026-09-21 — so the loader is a
+ * function rather than `null`, and the refusal arrives when it is used.
+ *
+ * Asserted on the calendar rendering, which is what a reader sees. The loader
+ * being absent was only ever a means to "no behaviour and no colours from
+ * metadata", and this host reaches that by refusing rather than by omitting.
+ */
+check('a canvas host still gets a calendar, from what the view loaded', markup(bind({ host: 'canvas' })).includes('data-day="2026-09-14"'), '');
 
 check('the default view is passed down', bind({ inputs: { defaultView: 'week' } }).props().defaultView === 'week' && /CalendarView--week/.test(markup(bind({ inputs: { defaultView: 'week' } }))), '');
 
@@ -979,6 +1015,39 @@ check('the same for initialDate', switched.props().initialDay === '2026-03-10' &
     rerendered.settle();
 
     check('and re-rendering does not add another one', time.pending() === afterFirst, `${afterFirst} → ${time.pending()}`);
+
+    /*
+     * **A synchronous refusal has to arrive as a rejection.** Canvas throws
+     * `getEntityMetadata` from the call, not as a rejected promise, so it never
+     * reaches the loader's own `.catch` — it escapes the loader, escapes the
+     * effect that calls it, and the studio replaces the calendar with *Error
+     * loading control*.
+     *
+     * This has to **call** the loader. Rendering alone never invokes it and
+     * passes against the broken control.
+     */
+    const canvasLoad = bind({ host: 'canvas' }).props().loadMetadata;
+    let canvasThrew = false;
+    let canvasResolved = null;
+
+    if (typeof canvasLoad === 'function') {
+        try {
+            canvasResolved = await canvasLoad();
+        } catch {
+            canvasThrew = true;
+        }
+    }
+
+    check(
+        'a canvas metadata refusal reaches the loader catch instead of escaping it',
+        typeof canvasLoad === 'function' && !canvasThrew
+            && canvasResolved !== null && canvasResolved.startBehavior === 'unknown',
+        typeof canvasLoad !== 'function'
+            ? 'no loader built — the assertion never reached the call'
+            : canvasThrew
+                ? 'threw out of the call — this kills the control'
+                : 'resolved to an unknown-behaviour reading',
+    );
 
     disposeAll();
     report();

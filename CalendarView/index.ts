@@ -322,6 +322,50 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
      * because it costs nothing; `webAPI` is typed as always present and is
      * not, so the optional access is deliberately narrower than the type.
      */
+    /**
+     * Whether this host is one where a model-driven-only API means anything.
+     *
+     * **`typeof x.method === 'function'` is not that test.** Measured with a
+     * host probe on a real canvas app, 2026-09-22: **fifteen of fifteen**
+     * platform surfaces are published there, `webAPI.updateRecord` among them,
+     * and the ones safe to call throw `Method not implemented.` from the call.
+     *
+     * `getClientUrl` refuses by throwing, and a thrown refusal is an answer
+     * once it is caught. That is the discriminator.
+     */
+    private modelDrivenHost(context: ComponentFramework.Context<IInputs>): boolean {
+        const ask = <T>(call: () => T): T | undefined => {
+            try {
+                return call();
+            } catch {
+                return undefined;
+            }
+        };
+
+        const page = (context as { page?: { getClientUrl?: unknown } }).page;
+        const fromPage = typeof page?.getClientUrl === 'function'
+            ? ask(() => (page.getClientUrl as () => unknown)())
+            : undefined;
+        const fromGlobal = ask(() => (globalThis as {
+            Xrm?: { Utility?: { getGlobalContext?: () => { getClientUrl?: () => unknown } } };
+        }).Xrm?.Utility?.getGlobalContext?.()?.getClientUrl?.());
+
+        return [fromPage, fromGlobal].some((url) => typeof url === 'string' && url !== '');
+    }
+
+    /**
+     * Whether a move can be saved.
+     *
+     * **Two routes, and only the second needed a host test.** The dataset
+     * record writes through `setValue`/`save`, which works wherever the record
+     * can be written — canvas included — so that branch is left exactly as it
+     * was. Gating the whole method would have withheld drag-to-move on canvas,
+     * where it works.
+     *
+     * The Web API fallback is the one that lied: `updateRecord` exists on
+     * canvas and refuses, so this returned `true` on a canvas host whose
+     * records were not editable and the move could only fail.
+     */
     private canWrite(context: ComponentFramework.Context<IInputs>, dataset: DataSet): boolean {
         const firstId = (dataset.sortedRecordIds ?? [])[0];
 
@@ -329,7 +373,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             return true;
         }
 
-        return typeof context.webAPI?.updateRecord === 'function';
+        return typeof context.webAPI?.updateRecord === 'function' && this.modelDrivenHost(context);
     }
 
     /** Ask for a new page size, but only when it actually changed. Unset, adopt the host's and never call `setPageSize`. */
@@ -505,9 +549,23 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const entity = dataset.getTargetEntityType();
         const columns = [start.name, end?.name, color?.name].filter((name): name is string => typeof name === 'string');
 
+        /*
+         * **The executor is not ceremony.** A host can publish this method and
+         * refuse to run it *synchronously* — canvas answers
+         * `getEntityMetadata: Method not implemented.` from the call itself,
+         * measured on a real canvas app 2026-09-21 against `pcf-data-table`.
+         *
+         * A synchronous throw is not a rejected promise: it never reaches the
+         * `.catch` below, it escapes this loader, it escapes the effect that
+         * calls it, and the studio replaces the whole calendar with *Error
+         * loading control*. The `typeof … === 'function'` guard above passes,
+         * because the method genuinely exists — existing is not working.
+         *
+         * A throw inside the executor rejects instead of propagating, which is
+         * what the chain here was already written for.
+         */
         return (): Promise<Metadata> =>
-            context.utils
-                .getEntityMetadata(entity, columns)
+            new Promise<unknown>((resolve) => resolve(context.utils.getEntityMetadata(entity, columns)))
                 .then((metadata: unknown) => {
                     const attributes = (metadata as { Attributes?: { get?: (name: string) => unknown } } | null)?.Attributes;
                     const node = (name: string | undefined): unknown =>
