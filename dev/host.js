@@ -372,6 +372,15 @@
          * `saved[0]` throws on it. An ordinary (non-quick-create) form
          * resolves with an empty array.
          */
+        /**
+         * Whether `navigation.openForm` exists at all.
+         *
+         * Defaults on for **both** hosts: canvas publishes it and refuses when
+         * called, measured 2026-09-22. `false` models a host that omits the
+         * method, which is what this rig used to pretend canvas was.
+         */
+        openForm: true,
+
         openFormReturns: { savedEntityReference: null },
 
         /**
@@ -1676,8 +1685,14 @@
                 },
             };
 
-            // Model-driven only, on the same rule as `openFile` below.
-            if (o.host !== 'canvas') {
+            /*
+             * Model-driven only — **and published on canvas anyway**, which is
+             * a different thing. Measured with a host probe on a real canvas
+             * app, 2026-09-22: every surface asked about came back present,
+             * refusing only when called. Omitting the method here made a
+             * `typeof` guard fail locally and pass on the platform.
+             */
+            if (o.openForm !== false) {
                 /**
                  * Logged in full, **both arguments**, because the options
                  * *are* the behaviour: whether `useQuickCreateForm` was set,
@@ -1694,6 +1709,19 @@
                  */
                 navigation.openForm = function (formOptions, parameters) {
                     log('navigation.openForm', { options: formOptions, parameters: parameters });
+
+                    /*
+                     * **Canvas publishes this and refuses it.** Measured with a
+                     * host probe on a real canvas app, 2026-09-22:
+                     * `navigation.openForm` came back `present: true` along
+                     * with every other surface asked about. Gating the whole
+                     * object on the host made `canCreate` false here for a
+                     * reason that is not the platform's — so the "+" was
+                     * withheld in this rig and drawn in a real canvas app.
+                     */
+                    if (o.host === 'canvas') {
+                        throw new Error('openForm: Method not implemented.');
+                    }
 
                     return Promise.resolve(o.openFormReturns);
                 };

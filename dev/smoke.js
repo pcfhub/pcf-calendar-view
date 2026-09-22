@@ -569,7 +569,22 @@ check('nor when the maker turned moving off', bind({ inputs: { allowMove: false 
 
 check('offers to create where the host has a form to open', plain.props().canCreate === true, '');
 
-check('but not on canvas, which has no forms', bind({ host: 'canvas' }).props().canCreate === false, '');
+/*
+ * **Canvas publishes `navigation.openForm` and refuses it.** Measured with a
+ * host probe on a real canvas app, 2026-09-22: fifteen of fifteen platform
+ * surfaces present, the callable ones throwing `Method not implemented.`
+ *
+ * This assertion passed for the wrong reason — the rig omitted the method on
+ * canvas, so `formOpener` returned null without ever testing the host. On a
+ * real canvas app the method exists, the guard passed, and the "+" was drawn
+ * in an app with no forms at all. Reported 2026-09-22.
+ *
+ * What withholds it now is `modelDrivenHost`: an answer from `getClientUrl`
+ * rather than the existence of a method.
+ */
+check('but not on canvas, where openForm exists and refuses', bind({ host: 'canvas' }).props().canCreate === false, '');
+
+check('while a host that omits the method entirely is also withheld', bind({ openForm: false }).props().canCreate === false, '');
 
 /*
  * **Canvas offers the metadata loader and then refuses it.** It publishes

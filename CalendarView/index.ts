@@ -58,12 +58,57 @@ type FormOpener = (options: Record<string, unknown>, parameters?: Record<string,
  * non-optional and its members go missing one at a time — canvas has the
  * bag and not this method — so the method is what is checked.
  */
+/**
+ * Whether this host is one where a model-driven-only API means anything.
+ *
+ * **`typeof x.method === 'function'` is not that test.** Measured with a host
+ * probe on a real canvas app, 2026-09-22: **fifteen of fifteen** platform
+ * surfaces are published there, `navigation.openForm` among them, and the ones
+ * safe to call throw `Method not implemented.` from the call itself.
+ *
+ * `getClientUrl` refuses by throwing, and a thrown refusal is an answer once it
+ * is caught. It is undocumented — absent from the API reference entirely —
+ * which is why it is read defensively and why the `Xrm` global is tried after
+ * it.
+ */
+function modelDrivenHost(context: ComponentFramework.Context<IInputs>): boolean {
+    const ask = <T>(call: () => T): T | undefined => {
+        try {
+            return call();
+        } catch {
+            return undefined;
+        }
+    };
+
+    const page = (context as { page?: { getClientUrl?: unknown } }).page;
+    const fromPage = typeof page?.getClientUrl === 'function'
+        ? ask(() => (page.getClientUrl as () => unknown)())
+        : undefined;
+    const fromGlobal = ask(() => (globalThis as {
+        Xrm?: { Utility?: { getGlobalContext?: () => { getClientUrl?: () => unknown } } };
+    }).Xrm?.Utility?.getGlobalContext?.()?.getClientUrl?.());
+
+    return [fromPage, fromGlobal].some((url) => typeof url === 'string' && url !== '');
+}
+
+/**
+ * The quick create opener, or `null` on a host that cannot open a form.
+ *
+ * **`typeof navigation.openForm === 'function'` is not that test.** It passes
+ * on canvas, where the method exists and refuses — so the plus icon was drawn
+ * in an app that has no forms at all, and pressing it could only fail.
+ *
+ * The method has to exist **and** the host has to be one where it means
+ * anything. See `modelDrivenHost`.
+ */
 function formOpener(context: ComponentFramework.Context<IInputs>): FormOpener | null {
     const navigation = (context as { navigation?: { openForm?: unknown } }).navigation;
 
-    return navigation && typeof navigation.openForm === 'function'
-        ? (navigation.openForm as FormOpener).bind(navigation)
-        : null;
+    if (!navigation || typeof navigation.openForm !== 'function') {
+        return null;
+    }
+
+    return modelDrivenHost(context) ? (navigation.openForm as FormOpener).bind(navigation) : null;
 }
 
 /** `mode.contextInfo` — untyped, the parent record on a form subgrid; absent on a main grid. */
@@ -323,37 +368,6 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
      * not, so the optional access is deliberately narrower than the type.
      */
     /**
-     * Whether this host is one where a model-driven-only API means anything.
-     *
-     * **`typeof x.method === 'function'` is not that test.** Measured with a
-     * host probe on a real canvas app, 2026-09-22: **fifteen of fifteen**
-     * platform surfaces are published there, `webAPI.updateRecord` among them,
-     * and the ones safe to call throw `Method not implemented.` from the call.
-     *
-     * `getClientUrl` refuses by throwing, and a thrown refusal is an answer
-     * once it is caught. That is the discriminator.
-     */
-    private modelDrivenHost(context: ComponentFramework.Context<IInputs>): boolean {
-        const ask = <T>(call: () => T): T | undefined => {
-            try {
-                return call();
-            } catch {
-                return undefined;
-            }
-        };
-
-        const page = (context as { page?: { getClientUrl?: unknown } }).page;
-        const fromPage = typeof page?.getClientUrl === 'function'
-            ? ask(() => (page.getClientUrl as () => unknown)())
-            : undefined;
-        const fromGlobal = ask(() => (globalThis as {
-            Xrm?: { Utility?: { getGlobalContext?: () => { getClientUrl?: () => unknown } } };
-        }).Xrm?.Utility?.getGlobalContext?.()?.getClientUrl?.());
-
-        return [fromPage, fromGlobal].some((url) => typeof url === 'string' && url !== '');
-    }
-
-    /**
      * Whether a move can be saved.
      *
      * **Two routes, and only the second needed a host test.** The dataset
@@ -373,7 +387,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             return true;
         }
 
-        return typeof context.webAPI?.updateRecord === 'function' && this.modelDrivenHost(context);
+        return typeof context.webAPI?.updateRecord === 'function' && modelDrivenHost(context);
     }
 
     /** Ask for a new page size, but only when it actually changed. Unset, adopt the host's and never call `setPageSize`. */
