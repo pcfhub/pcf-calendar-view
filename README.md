@@ -119,11 +119,13 @@ English, Spanish, French, German and Japanese. Two features are declared, both
 ## On the hub
 
 `demo.fidelity` is `limited`. The harness supplies one page, discards filters,
-has no metadata, no user settings, no forms and no environment to write to — so
-in the demo the calendar shows every fixture record at once, places them by the
-shape of their values in the browser's zone, moves them optimistically without
-writing, and hides the **+**. The presets set `initialDate` because the fixture
-cannot follow the clock. Every one of those is listed in `demo.limitations`.
+and has no column metadata, no Dataverse user, no organisation URL and no
+environment to write to — so in the demo the calendar shows every fixture record
+at once, places them by the shape of their values in the browser's zone, moves
+them optimistically without writing, and hides the **+**. Opening an event names
+it in the demo's event log instead. The presets set `initialDate` because the
+fixture cannot follow the clock. Every one of those is listed in
+`demo.limitations`.
 
 ## Install
 

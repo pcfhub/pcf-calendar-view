@@ -152,8 +152,10 @@ control's root** — the parent may be sizing itself from you.
 ## Demo
 
 `limited`, and the list in `pcfhub.json` is the whole reason: the harness has
-one page, no filters, no metadata, no user settings, no forms and no
-environment. What *does* work there is placement, navigation, the view switch,
+one page, no filters, no column metadata, no Dataverse user to take a time zone
+from, no organisation URL for the **+** and no environment. It does publish
+`userSettings` and `utils` — the gaps are what they answer with, not their
+absence. What *does* work there is placement, navigation, the view switch,
 and an optimistic move — enough to see what the control is. `initialDate`
 exists partly so the demo can open on the fixture's month.
 
