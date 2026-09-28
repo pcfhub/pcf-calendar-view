@@ -151,13 +151,29 @@ control's root** — the parent may be sizing itself from you.
 
 ## Demo
 
-`limited`, and the list in `pcfhub.json` is the whole reason: the harness has
-one page, no filters, no column metadata, no Dataverse user to take a time zone
-from, no organisation URL for the **+** and no environment. It does publish
-`userSettings` and `utils` — the gaps are what they answer with, not their
-absence. What *does* work there is placement, navigation, the view switch,
-and an optimistic move — enough to see what the control is. `initialDate`
-exists partly so the demo can open on the fixture's month.
+`limited`, and the list in `pcfhub.json` is the whole reason. The harness has:
+
+- no column metadata;
+- no Dataverse user to take a time zone from;
+- no organisation URL for the **+**;
+- no environment.
+
+It does publish `userSettings` and `utils`. The gaps are what they answer with,
+not their absence.
+
+What *does* work there is placement, navigation, the view switch and an
+optimistic move: enough to see what the control is. `initialDate` exists partly
+so the demo can open on the fixture's month.
+
+Since pcfhub/pcfhub#51 the harness also applies the window filter and pages.
+It was checked with 0.2.3's published bundle against that harness:
+
+- Next from September gave October's grid holding the two events on 29 and
+  30 September, after `paging.reset` and `refresh`;
+- Previous twice gave August's grid with the two events on 1 and 3 September;
+- September again showed all 13;
+- at five events per fetch, "5 loaded — there are more in this range" and
+  Load more went 5, 10, 13.
 
 ## Not verified
 

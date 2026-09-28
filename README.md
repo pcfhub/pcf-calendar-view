@@ -118,14 +118,22 @@ English, Spanish, French, German and Japanese. Two features are declared, both
 
 ## On the hub
 
-`demo.fidelity` is `limited`. The harness supplies one page, discards filters,
-and has no column metadata, no Dataverse user, no organisation URL and no
-environment to write to — so in the demo the calendar shows every fixture record
-at once, places them by the shape of their values in the browser's zone, moves
-them optimistically without writing, and hides the **+**. Opening an event names
-it in the demo's event log instead. The presets set `initialDate` because the
-fixture cannot follow the clock. Every one of those is listed in
-`demo.limitations`.
+`demo.fidelity` is `limited`.
+
+Since pcfhub/pcfhub#51 the harness applies a filter and pages. So stepping to
+another month fetches that month's range, and a page size below the month's
+events brings up **Load more**.
+
+It still has no column metadata, no Dataverse user, no organisation URL and no
+environment to write to. So in the demo the calendar:
+
+- places events by the shape of their values, in the browser's time zone;
+- moves them optimistically, without writing;
+- hides the **+**.
+
+Opening an event names it in the demo's event log instead. The presets set
+`initialDate` because the fixture cannot follow the clock. Every one of those is
+listed in `demo.limitations`.
 
 ## Install
 
