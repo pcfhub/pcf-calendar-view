@@ -151,19 +151,36 @@ control's root** — the parent may be sizing itself from you.
 
 ## Demo
 
-`limited`, and the list in `pcfhub.json` is the whole reason. The harness has:
+`mocked` since 2026-09-28; `limited` before that. The harness had no column
+metadata, no organisation URL for the **+**, and no environment to write to.
 
-- no column metadata;
-- no Dataverse user to take a time zone from;
-- no organisation URL for the **+**;
-- no environment.
+pcfhub/pcfhub#52 let a fixture describe its columns. `demo/records.json` now
+carries a stand-in Dataverse:
 
-It does publish `userSettings` and `utils`. The gaps are what they answer with,
-not their absence.
+- `cr123_starton` and `cr123_endon` are User Local;
+- `cr123_kind` holds integers, with four options, each with a colour.
 
-What *does* work there is placement, navigation, the view switch and an
-optimistic move: enough to see what the control is. `initialDate` exists partly
-so the demo can open on the fixture's month.
+It was checked with 0.2.3's published bundle against that harness, before the
+push, in a browser at UTC−6:
+
+- every event was placed as an instant in the user's zone (Sprint planning,
+  14:00Z, at 8:00 AM), each edge in its option's colour;
+- each day carried "Add an event on …", asking `openForm` for
+  `cr123_appointment`'s quick create form;
+- *A day later* from Sprint planning's menu went through `record.save` and a
+  refresh, and the event stayed on 2 September after a property change;
+- *End a day later* on the timeline's Offsite saved the same way, and the bar
+  spanned four days after a property change.
+
+**What still stands in for the platform:** the user's zone is the browser's,
+because there is no Dataverse user, and `initialDate` opens the fixture's
+month.
+
+**Release 2.4 lost its whole day.** It sat at UTC midnight, which the
+no-metadata fallback reads as a Date Only day. With the columns declared User
+Local it would have been an instant on the evening before, west of Greenwich.
+So it now has a time (15:00Z), and no event in the demo is a whole day. A
+second, Date Only column pair would show one. The fixture binds one pair.
 
 Since pcfhub/pcfhub#51 the harness also applies the window filter and pages.
 It was checked with 0.2.3's published bundle against that harness:

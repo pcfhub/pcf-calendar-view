@@ -84,8 +84,9 @@ there rather than broken.
 
 Creating an event opens the table's quick create form through
 `navigation.openForm`. A table without one gets the main form instead, which
-still opens with the day set. Canvas apps and the hub's demo have no forms to
-open, so the **+** is not shown there.
+still opens with the day set. Canvas apps have no forms to open, so the **+**
+is not shown there. The hub's demo shows it, and names the form it would have
+opened in its event log.
 
 ## The colour role needs a choice column with colours
 

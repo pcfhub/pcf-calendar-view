@@ -37,18 +37,39 @@
         }
     ],
     "records": [
-        { "id": "d01", "values": { "cr123_subject": "Sprint planning", "cr123_starton": "2026-09-01T14:00:00Z", "cr123_endon": "2026-09-01T15:30:00Z", "cr123_kind": "Meeting" } },
-        { "id": "d02", "values": { "cr123_subject": "Customer visit — Fabrikam", "cr123_starton": "2026-09-03T13:00:00Z", "cr123_endon": "2026-09-03T17:00:00Z", "cr123_kind": "Visit" } },
-        { "id": "d03", "values": { "cr123_subject": "Offsite", "cr123_starton": "2026-09-08T12:00:00Z", "cr123_endon": "2026-09-10T20:00:00Z", "cr123_kind": "Event" } },
-        { "id": "d04", "values": { "cr123_subject": "Design review", "cr123_starton": "2026-09-09T16:00:00Z", "cr123_endon": "2026-09-09T17:00:00Z", "cr123_kind": "Meeting" } },
-        { "id": "d05", "values": { "cr123_subject": "Interview — Priya Raman", "cr123_starton": "2026-09-14T15:30:00Z", "cr123_endon": "2026-09-14T16:15:00Z", "cr123_kind": "Meeting" } },
-        { "id": "d06", "values": { "cr123_subject": "Board dinner", "cr123_starton": "2026-09-14T23:30:00Z", "cr123_endon": "2026-09-15T01:30:00Z", "cr123_kind": "Event" } },
-        { "id": "d07", "values": { "cr123_subject": "Dentist", "cr123_starton": "2026-09-16T14:00:00Z", "cr123_endon": null, "cr123_kind": "Personal" } },
-        { "id": "d08", "values": { "cr123_subject": "Quarterly business review", "cr123_starton": "2026-09-17T13:00:00Z", "cr123_endon": "2026-09-17T15:00:00Z", "cr123_kind": "Meeting" } },
-        { "id": "d09", "values": { "cr123_subject": "Site visit — Northwind", "cr123_starton": "2026-09-22T13:00:00Z", "cr123_endon": "2026-09-22T16:00:00Z", "cr123_kind": "Visit" } },
-        { "id": "d10", "values": { "cr123_subject": "Release 2.4", "cr123_starton": "2026-09-24T00:00:00.000Z", "cr123_endon": null, "cr123_kind": "Event" } },
-        { "id": "d11", "values": { "cr123_subject": "Consolidated Messenger kickoff, with the whole account team", "cr123_starton": "2026-09-25T09:00:00Z", "cr123_endon": "2026-09-25T10:00:00Z", "cr123_kind": "Meeting" } },
-        { "id": "d12", "values": { "cr123_subject": "Audit prep", "cr123_starton": "2026-09-29T13:00:00Z", "cr123_endon": "2026-09-29T14:00:00Z", "cr123_kind": "Meeting" } },
-        { "id": "d13", "values": { "cr123_subject": "Team lunch", "cr123_starton": "2026-09-30T12:00:00Z", "cr123_endon": "2026-09-30T13:00:00Z", "cr123_kind": "Personal" } }
-    ]
+        { "id": "d01", "values": { "cr123_subject": "Sprint planning", "cr123_starton": "2026-09-01T14:00:00Z", "cr123_endon": "2026-09-01T15:30:00Z", "cr123_kind": 1 } },
+        { "id": "d02", "values": { "cr123_subject": "Customer visit — Fabrikam", "cr123_starton": "2026-09-03T13:00:00Z", "cr123_endon": "2026-09-03T17:00:00Z", "cr123_kind": 2 } },
+        { "id": "d03", "values": { "cr123_subject": "Offsite", "cr123_starton": "2026-09-08T12:00:00Z", "cr123_endon": "2026-09-10T20:00:00Z", "cr123_kind": 3 } },
+        { "id": "d04", "values": { "cr123_subject": "Design review", "cr123_starton": "2026-09-09T16:00:00Z", "cr123_endon": "2026-09-09T17:00:00Z", "cr123_kind": 1 } },
+        { "id": "d05", "values": { "cr123_subject": "Interview — Priya Raman", "cr123_starton": "2026-09-14T15:30:00Z", "cr123_endon": "2026-09-14T16:15:00Z", "cr123_kind": 1 } },
+        { "id": "d06", "values": { "cr123_subject": "Board dinner", "cr123_starton": "2026-09-14T23:30:00Z", "cr123_endon": "2026-09-15T01:30:00Z", "cr123_kind": 3 } },
+        { "id": "d07", "values": { "cr123_subject": "Dentist", "cr123_starton": "2026-09-16T14:00:00Z", "cr123_endon": null, "cr123_kind": 4 } },
+        { "id": "d08", "values": { "cr123_subject": "Quarterly business review", "cr123_starton": "2026-09-17T13:00:00Z", "cr123_endon": "2026-09-17T15:00:00Z", "cr123_kind": 1 } },
+        { "id": "d09", "values": { "cr123_subject": "Site visit — Northwind", "cr123_starton": "2026-09-22T13:00:00Z", "cr123_endon": "2026-09-22T16:00:00Z", "cr123_kind": 2 } },
+        { "id": "d10", "values": { "cr123_subject": "Release 2.4", "cr123_starton": "2026-09-24T15:00:00Z", "cr123_endon": null, "cr123_kind": 3 } },
+        { "id": "d11", "values": { "cr123_subject": "Consolidated Messenger kickoff, with the whole account team", "cr123_starton": "2026-09-25T09:00:00Z", "cr123_endon": "2026-09-25T10:00:00Z", "cr123_kind": 1 } },
+        { "id": "d12", "values": { "cr123_subject": "Audit prep", "cr123_starton": "2026-09-29T13:00:00Z", "cr123_endon": "2026-09-29T14:00:00Z", "cr123_kind": 1 } },
+        { "id": "d13", "values": { "cr123_subject": "Team lunch", "cr123_starton": "2026-09-30T12:00:00Z", "cr123_endon": "2026-09-30T13:00:00Z", "cr123_kind": 4 } }
+    ],
+    "dataverse": {
+        "tables": {
+            "cr123_appointment": {
+                "entitySet": "cr123_appointments",
+                "primaryId": "cr123_appointmentid",
+                "primaryName": "cr123_subject",
+                "columns": {
+                    "cr123_starton": { "behavior": "userlocal" },
+                    "cr123_endon": { "behavior": "userlocal" },
+                    "cr123_kind": {
+                        "options": [
+                            { "value": 1, "label": "Meeting", "color": "#0f6cbd" },
+                            { "value": 2, "label": "Visit", "color": "#107c10" },
+                            { "value": 3, "label": "Event", "color": "#c239b3" },
+                            { "value": 4, "label": "Personal", "color": "#ca5010" }
+                        ]
+                    }
+                }
+            }
+        }
+    }
 }

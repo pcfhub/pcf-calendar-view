@@ -118,22 +118,35 @@ English, Spanish, French, German and Japanese. Two features are declared, both
 
 ## On the hub
 
-`demo.fidelity` is `limited`.
+`demo.fidelity` is `mocked`: the calendar works, against a stand-in Dataverse
+rather than a real one.
 
-Since pcfhub/pcfhub#51 the harness applies a filter and pages. So stepping to
-another month fetches that month's range, and a page size below the month's
-events brings up **Load more**.
+`demo/records.json` carries that stand-in since pcfhub/pcfhub#52. Starts and
+Ends are described as User Local, and Kind's four options each have a colour.
+So in the demo, as on a model-driven form:
 
-It still has no column metadata, no Dataverse user, no organisation URL and no
-environment to write to. So in the demo the calendar:
+- events are placed by their columns' behaviour, read through
+  `getEntityMetadata`;
+- each event takes its option's colour;
+- a move or a resize is written through the record and kept;
+- each day carries a **+** that asks for the quick create form, which the
+  event log names.
 
-- places events by the shape of their values, in the browser's time zone;
-- moves them optimistically, without writing;
-- hides the **+**.
+Since pcfhub/pcfhub#51, stepping to another month fetches that month's range,
+and a page size below the month's events brings up **Load more**.
 
-Opening an event names it in the demo's event log instead. The presets set
-`initialDate` because the fixture cannot follow the clock. Every one of those is
-listed in `demo.limitations`.
+Two things stand in for the platform:
+
+- **The user's time zone is the browser's.** The demo has no Dataverse user.
+- **The presets set `initialDate`**, because the fixture cannot follow the
+  clock.
+
+Opening an event names it in the demo's event log instead. Each is listed in
+`demo.limitations`.
+
+No event in the fixture is a whole day: a User Local column cannot hold one.
+Release 2.4 was one, at UTC midnight, until the columns' behaviour was
+declared.
 
 ## Install
 
