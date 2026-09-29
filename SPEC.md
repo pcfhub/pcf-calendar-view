@@ -2,6 +2,30 @@
 
 A Dataverse view as a month, week or timeline calendar, by a date column.
 
+## 0.2.4 — a move keeps what Load more brought in
+
+`pcf-kanban-board` found it on a form (2026-09-29, its 0.4.1): a dataset
+`refresh()` starts the view again at its first page. `adjustEvent` ended with
+one in `finally`, so moving or resizing an event after **Load more** took every
+event past the first page off the calendar. Now there is no refresh after a
+write: the override shows the move, a refused one is put back by the component
+from the outcome `adjustEvent` resolves (the overlay adds shifts, so the
+opposite one), and a move never sent (an end before its start) is put back the
+same way — through 0.2.3 its placement stayed until the events changed. The
+range and create refreshes stay; both must fetch.
+
+The rig was moved onto the template's host first (`62bcae6`); against its
+page-one refresh, restoring the old refresh fails "9 loaded, then 5". In the
+harness, with `record.save()` refusing, an event moved a day later twice went
+back each time with the sentence and no busy mark.
+
+| | Look at | Right way | Measured |
+| --- | --- | --- | --- |
+| W1 | **Events per fetch** below the month's events, **Load more** until all are shown, drag an event from the last page to another day | Lands; every event stays on the calendar | |
+| W2 | The same on the timeline, dragging a bar's edge | Resizes; every bar stays | |
+| W3 | A month with fewer events than a page, a move | As before 0.2.4 | |
+| W4 | **+** on a day, save | The event appears; the range starts again at its first page (documented) | |
+
 ## Measured — the 0.2.0 timeline walkthrough, 17 September 2026
 
 On the Accounts form's `cll_event` subgrid, the 0.2.0 build imported over
