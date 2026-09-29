@@ -67,7 +67,9 @@ where the platform reports the start column editable and through
 `webAPI.updateRecord` otherwise — never half and half, because the end column
 moves with the start. The event lands before the round trip finishes, the
 control retires its override once refreshed data agrees, and puts the event
-back with a message if the write is refused.
+back with a message if the write is refused. It does not read the view again
+after a move (since 0.2.4): a refresh starts the range at its first page, and
+every event **Load more** had brought in would go with it.
 
 Every event also carries a **⋯** menu with *a day earlier / later* and *a week
 earlier / later* — and on the timeline *start* and *end a day earlier / later*.

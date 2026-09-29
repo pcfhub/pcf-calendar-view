@@ -45,10 +45,11 @@ zone, measured with the two an hour apart.
   refused — most often a user without update privilege on the record, or a
   column the platform will not let a control write. The message names the
   event and the platform's reason.
-- **The event moves and stays, but the record did not change.** The refresh
-  after the write has not landed yet; a subgrid refresh takes several
-  seconds. If it never changes, the host confirmed a write it did not apply
-  — open the record and check.
+- **The event moves and stays, but the record did not change.** The calendar
+  shows a move the moment it is accepted and does not read the view again
+  afterwards, so the events **Load more** brought in stay. Open the record to
+  see the new dates; if they did not change, the host confirmed a write it
+  did not apply.
 
 ## The + is not there
 

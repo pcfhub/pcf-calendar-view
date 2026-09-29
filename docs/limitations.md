@@ -47,6 +47,12 @@ fetch**, when set — in one go. A range with more rows shows *N loaded — ther
 are more in this range* and a **Load more** button, which appends the next
 page without turning it. The platform caps a page at 250.
 
+Moving or resizing an event keeps every event **Load more** has brought in
+(from 0.2.4; before it, each move started the range again at its first page).
+**Creating an event, or stepping to another range, still does**: both have to
+fetch, and a fetch starts at the first page. Press **Load more** again to
+bring the rest back.
+
 ## Behaviour is read from metadata, and only where metadata can be read
 
 Whether a stored value is a whole day or an instant is the column's
