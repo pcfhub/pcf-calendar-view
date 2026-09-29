@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
-import { CalendarViewControl, Edge, IProps, Metadata, Row } from './components/CalendarViewControl';
+import { CalendarViewControl, Edge, IProps, Metadata, Row, MoveOutcome } from './components/CalendarViewControl';
 import {
     Behavior,
     ROLES,
@@ -221,6 +221,9 @@ function userOffsetOf(
  * this control keeps a copy for the writes. Until it lands, and on a host
  * with no `utils`, the value's own shape decides.
  */
+/** A move or resize that was not sent — nothing to put back but the calendar's own placement. */
+const NOT_SENT: MoveOutcome = { ok: false, message: null };
+
 export class CalendarView implements ComponentFramework.ReactControl<IInputs, IOutputs> {
     private notifyOutputChanged!: () => void;
     private selectedDate = '';
@@ -315,8 +318,8 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             today: dayKey(this.todayWall(userOffset)),
             initialDay: (context.parameters.initialDate.raw ?? '').trim(),
             onRangeChange: (first: Wall, last: Wall): void => this.applyRange(dataset, start, end, first, last),
-            onMove: (recordId: string, days: number): void => this.adjustEvent(context, dataset, recordId, days, days),
-            onResize: (recordId: string, edge: Edge, days: number): void =>
+            onMove: (recordId: string, days: number): Promise<MoveOutcome> => this.adjustEvent(context, dataset, recordId, days, days),
+            onResize: (recordId: string, edge: Edge, days: number): Promise<MoveOutcome> =>
                 this.adjustEvent(context, dataset, recordId, edge === 'start' ? days : 0, edge === 'end' ? days : 0),
             onSelectDay: (day: Wall): void => this.selectDay(day),
             onCreate: (day: Wall): void => this.createEvent(context, dataset, day),
@@ -625,9 +628,15 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
      * clamped in the component.
      *
      * The override goes in and the output is notified *before* the write is
-     * sent; the `.catch()` takes the override back out. `refresh()` runs
-     * either way, from `finally` — on success it is what eventually retires
-     * the override, on failure it repaints from data that never changed.
+     * sent; the `.catch()` takes the override back out.
+     *
+     * **No `refresh()` afterwards, since 0.2.4.** One ran from `finally`
+     * through 0.2.3, and a refresh starts the view again at its first page —
+     * so every event **Load more** had brought in vanished on each move, as
+     * `pcf-kanban-board` found on a form (2026-09-29, its 0.4.1). A landed
+     * move is on screen through the override, which retires at the next fetch
+     * that agrees; a refused one changes no output, so no render comes — the
+     * component puts it back from the outcome this resolves with.
      */
     private adjustEvent(
         context: ComponentFramework.Context<IInputs>,
@@ -635,19 +644,19 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         recordId: string,
         startDays: number,
         endDays: number,
-    ): void {
+    ): Promise<MoveOutcome> {
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
         const title = this.roleColumn(dataset, ROLES.title);
         const record = dataset.records[recordId];
 
         if (!start || !record || (startDays === 0 && endDays === 0) || !this.canWrite(context, dataset)) {
-            return;
+            return Promise.resolve(NOT_SENT);
         }
 
         // A resize needs an end column to write; without one the timeline never offers it.
         if (startDays !== endDays && !end) {
-            return;
+            return Promise.resolve(NOT_SENT);
         }
 
         const userOffset = userOffsetOf(context, this.offsetByDay);
@@ -657,7 +666,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const fromStart = current?.start ?? wallOf(record.getValue(start.name), startBehavior, userOffset);
 
         if (!fromStart) {
-            return;
+            return Promise.resolve(NOT_SENT);
         }
 
         const fromEnd = current ? current.end : end ? wallOf(record.getValue(end.name), endBehavior, userOffset) : null;
@@ -665,7 +674,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const toEnd = endDays === 0 ? fromEnd : shiftDays(fromEnd ?? fromStart, endDays);
 
         if (toEnd && compareDay(toEnd, toStart) < 0) {
-            return;
+            return Promise.resolve(NOT_SENT);
         }
 
         const startAllDay = formatOf(start.dataType) === 'date';
@@ -690,17 +699,21 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             writes.push({ column: end.name, wall: toEnd, behavior: endBehavior, allDay: endAllDay });
         }
 
-        void this.write(context, dataset, record, recordId, writes, userOffset)
-            .catch((error: unknown) => {
-                this.pending.delete(recordId);
-                this.moveError = `${context.resources
-                    .getString('CalendarView_MoveFailed')
-                    .replace('{0}', label)} ${this.describe(error)}`;
-                this.notifyOutputChanged();
-            })
+        return this.write(context, dataset, record, recordId, writes, userOffset)
+            .then(
+                (): MoveOutcome => ({ ok: true, message: null }),
+                (error: unknown): MoveOutcome => {
+                    this.pending.delete(recordId);
+                    this.moveError = `${context.resources
+                        .getString('CalendarView_MoveFailed')
+                        .replace('{0}', label)} ${this.describe(error)}`;
+                    this.notifyOutputChanged();
+
+                    return { ok: false, message: this.moveError };
+                },
+            )
             .finally(() => {
                 this.moving.delete(recordId);
-                dataset.refresh();
             });
     }
 

@@ -65,6 +65,16 @@ export interface Metadata {
     colors: Map<number, string>;
 }
 
+/**
+ * How a move or resize ended, as the entry point reports it — so the calendar
+ * can put a refused event back without a platform render (0.2.4).
+ */
+export interface MoveOutcome {
+    ok: boolean;
+    /** The sentence to show when it was refused, or `null`. */
+    message: string | null;
+}
+
 export interface IProps {
     rows: Row[];
     startFormat: Format;
@@ -108,9 +118,10 @@ export interface IProps {
     initialDay: string;
     onRangeChange: (first: Wall, last: Wall) => void;
     /** Move the whole event by days — start and end together. */
-    onMove: (recordId: string, days: number) => void;
+    /** Write a move; resolves with how it ended, never rejects. */
+    onMove: (recordId: string, days: number) => Promise<MoveOutcome>;
     /** Move one end of it by days, the other held — the timeline's resize. Only offered with an end role bound. */
-    onResize: (recordId: string, edge: Edge, days: number) => void;
+    onResize: (recordId: string, edge: Edge, days: number) => Promise<MoveOutcome>;
     onSelectDay: (day: Wall) => void;
     onCreate: (day: Wall) => void;
     onOpenRecord: (id: string) => void;
@@ -367,13 +378,36 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
         [events, overlay],
     );
 
+    /*
+     * Events with a write in flight, and the last refusal — the calendar's
+     * own since 0.2.4: the write no longer ends with a refresh, and a refusal
+     * changes no output, so no render from the host would put the event back.
+     */
+    const [busy, setBusy] = React.useState<string[]>([]);
+    const [refusal, setRefusal] = React.useState<string | null>(null);
+
+    const settle = (id: string, startDays: number, endDays: number, sent: Promise<MoveOutcome>): void => {
+        place(id, startDays, endDays);
+        setRefusal(null);
+        setBusy((current) => [...current, id]);
+
+        void sent.then((outcome) => {
+            setBusy((current) => current.filter((each) => each !== id));
+
+            if (!outcome.ok) {
+                // The overlay adds shifts, so the opposite one puts it back.
+                place(id, -startDays, -endDays);
+                setRefusal(outcome.message);
+            }
+        });
+    };
+
     const move = (id: string, days: number): void => {
         if (days === 0) {
             return;
         }
 
-        place(id, days, days);
-        props.onMove(id, days);
+        settle(id, days, days, props.onMove(id, days));
     };
 
     const resize = (id: string, edge: Edge, days: number): void => {
@@ -381,8 +415,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
             return;
         }
 
-        place(id, edge === 'start' ? days : 0, edge === 'end' ? days : 0);
-        props.onResize(id, edge, days);
+        settle(id, edge === 'start' ? days : 0, edge === 'end' ? days : 0, props.onResize(id, edge, days));
     };
 
     /*
@@ -456,9 +489,9 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
 
     return frame(
         <>
-            {props.moveError !== null && (
+            {(refusal ?? props.moveError) !== null && (
                 <p className="CalendarView-error" role="alert">
-                    {props.moveError}
+                    {refusal ?? props.moveError}
                 </p>
             )}
 
@@ -511,6 +544,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
             {view === 'timeline' ? (
                 <Timeline
                     {...props}
+                    moving={[...props.moving, ...busy]}
                     days={timelineDays(anchor)}
                     first={range.first}
                     last={range.last}
@@ -538,6 +572,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
                                 <DayCell
                                     key={dayKey(day)}
                                     {...props}
+                                    moving={[...props.moving, ...busy]}
                                     day={day}
                                     view={view}
                                     inMonth={view === 'week' || day.month === anchor.month}

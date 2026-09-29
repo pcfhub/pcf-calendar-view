@@ -822,7 +822,37 @@ check('the same for initialDate', switched.props().initialDay === '2026-03-10' &
 
     check('and not the Web API, which this record did not need', !moved.calls().some((call) => call.startsWith('webAPI.updateRecord')), '');
 
-    check('then refreshing, so the override retires against real data', moved.calls().some((call) => call === 'refresh'), '');
+    /*
+     * **And no refresh, since 0.2.4.** A refresh starts the view again at its
+     * first page, so each move dropped every event Load more had brought in
+     * (found on a form by pcf-kanban-board, 2026-09-29). The override holds
+     * the event until a fetch agrees.
+     */
+    check('and no refresh — it would drop what Load more brought in', !moved.calls().some((call) => call === 'refresh'), moved.calls().join(' '));
+
+    const longMonth = bind({});
+
+    longMonth.props().onRangeChange(SEPTEMBER.first, SEPTEMBER.last);
+    longMonth.settle();
+    longMonth.props().onLoadMore();
+    longMonth.settle();
+
+    const loadedRows = longMonth.props().rows.length;
+    const fromPageTwo = longMonth.props().rows[loadedRows - 1].id;
+    const landed = await longMonth.props().onMove(fromPageTwo, 1);
+
+    longMonth.settle();
+
+    check(
+        'a move of an event Load more brought in keeps every loaded event',
+        loadedRows === 9 && longMonth.props().rows.length === 9 && !longMonth.calls().slice(-6).some((call) => call === 'refresh'),
+        `${loadedRows} loaded, then ${longMonth.props().rows.length}; ${longMonth.calls().slice(-6).join(' ')}`,
+    );
+    check('and reports that it landed', landed && landed.ok === true, JSON.stringify(landed));
+
+    const refusedMove = await bind({ quirks: { saveRejects: true }, rejection: { message: 'Not that day.' } }).props().onMove('e1', 1);
+
+    check('a refused move reports it, with the sentence to show', refusedMove && refusedMove.ok === false && /Not that day\./.test(String(refusedMove.message)), JSON.stringify(refusedMove));
 
     moved.settle();
 
