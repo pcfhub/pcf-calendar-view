@@ -123,7 +123,9 @@
         GreaterEqual: 4,
         LessEqual: 5,
         Like: 6,
+        In: 8,
         Null: 12,
+        NotNull: 13,
         On: 25,
         OnOrBefore: 26,
         OnOrAfter: 27,
@@ -230,7 +232,6 @@
         CalendarView_NoEvents: "No events in this month.",
         CalendarView_ReadOnly: "This host cannot write to the record.",
     };
-
     var HOSTS = {
         'model-driven': { label: 'model-driven form', publishesTheme: true },
         canvas: { label: 'canvas app', publishesTheme: false },
@@ -347,6 +348,16 @@
         openFile: true,
 
         /**
+         * Whether `context.navigation.openForm` exists at all. `false` is a
+         * host that leaves the method out — PCFHub's demo harness — which is
+         * not canvas: canvas publishes it and throws from the call. A control
+         * that guards on `typeof openForm` is right on this host and wrong on
+         * canvas, so a suite wants both (`pcf-calendar-view` carried this
+         * switch before the template did).
+         */
+        openForm: true,
+
+        /**
          * Whether `context.navigation` exists at all.
          *
          * Typed non-optional, which is a claim about the type definitions
@@ -369,18 +380,11 @@
          * savedEntityReference: null }`**, not `[]` and not a rejection. The
          * dismissal is the default here because it is the branch a control
          * forgets, and `null` rather than `[]` because a reader written as
-         * `saved[0]` throws on it. An ordinary (non-quick-create) form
-         * resolves with an empty array.
+         * `saved[0]` throws on it. **An ordinary form resolves on
+         * navigation, not on close** — 309 ms after the call, measured
+         * 2026-09-25 (pcf-row-commands P7) — with `savedEntityReference`
+         * holding the record it opened. This note used to say an empty array.
          */
-        /**
-         * Whether `navigation.openForm` exists at all.
-         *
-         * Defaults on for **both** hosts: canvas publishes it and refuses when
-         * called, measured 2026-09-22. `false` models a host that omits the
-         * method, which is what this rig used to pretend canvas was.
-         */
-        openForm: true,
-
         openFormReturns: { savedEntityReference: null },
 
         /**
@@ -420,12 +424,165 @@
         webApiFails: false,
 
         /**
+         * What a refused write rejects with — `record.save()` under
+         * `quirks.saveRejects`, and `createRecord`, `updateRecord` and
+         * `deleteRecord` under `webApiFails` — or `null` for each route's
+         * measured default.
+         *
+         * A control that prints the reason has to survive whatever the
+         * server's sentence is, and a plugin's or a business rule's is
+         * anything at all: `{ message: 'Only a team lead can resolve a work
+         * item.' }`, or not an object at all — `'a bare string'` is how a
+         * control printing `[object Object]` is caught. One switch for both
+         * routes, because a control's rollback must not care which one
+         * refused (`pcf-kanban-board`, which carried this before the
+         * template did).
+         */
+        rejection: null,
+
+        /**
+         * A `FilterExpression` the **host** holds on the view, which the
+         * control never set — a quick-find typed into the grid's own box —
+         * that narrows the rows and comes back from `filtering.getFilter()`
+         * merged with whatever the control set. Whether a real grid reports
+         * a quick-find this way is unmeasured. **A subgrid's relationship
+         * is not this**: see `relationshipFilter`.
+         */
+        hostFilter: null,
+
+        /**
+         * The subgrid's relationship to the record the form is on: `{ column,
+         * id }`, the lookup on the bound table and the parent's GUID. It
+         * narrows the rows the dataset shows and is **invisible to the
+         * control** — measured 2026-09-19 (pcf-chart-view SPEC.md P2):
+         * `filtering.getFilter()` answered `null` and
+         * `linking.getLinkedEntities()` `[]` on a contacts subgrid, while
+         * `filtering.canDisableRelationshipFilter` sat beside them naming the
+         * filter the platform keeps to itself. Pair it with `contextInfo`,
+         * which is where the parent's identity *is* visible. `null` is a main
+         * grid.
+         */
+        relationshipFilter: null,
+
+        /**
+         * The subgrid's **many-to-many** relationship to the form's record:
+         * `{ relationship, id }`, the relationship's SchemaName and the
+         * parent's GUID. It narrows the rows to those linked in
+         * `fixture.links`, and — like `relationshipFilter` — is not something
+         * the control can read off the dataset. Links change through the
+         * `$ref` requests the fetch stub answers below, and the rows follow
+         * them on the **next fetch**, not on the request: a control that
+         * links and forgets `dataset.refresh()` sees nothing move.
+         */
+        manyToManyFilter: null,
+
+        /**
+         * The `<data-set name=…>` the manifest declares — the key the dataset
+         * arrives under in `context.parameters`. The scaffold names it
+         * `records`; a control that renamed it passes its own here.
+         */
+        datasetName: 'records',
+
+        /**
+         * What `getViewId()` answers. `undefined` is the fixture's own id;
+         * `null` is the measured answer on a bound lookup's dataset
+         * (pcf-hierarchy-view, 2026-09-17), against typings that say `string`.
+         */
+        viewId: undefined,
+
+        /**
+         * Whether `retrieveRecord('savedquery' | 'userquery', id)` answers.
+         * `false` refuses both the way a record the user cannot read is
+         * refused — a personal view belonging to somebody else.
+         */
+        viewsReadable: true,
+
+        /**
+         * The most rows an aggregate FetchXML may cover before the server
+         * refuses with `AggregateQueryRecordLimit exceeded` (0x8004E023;
+         * 50,000 on a standard environment). Set it low to reach the
+         * refusal on a twelve-row fixture. The refusal's exact shape is
+         * **unmeasured** (pcf-chart-view SPEC.md P7); the rig uses the
+         * documented code and the fault shape every other refusal has.
+         */
+        aggregateLimit: 50000,
+
+        /** Whether every aggregate FetchXML is refused, whatever it covers. */
+        aggregateRefused: false,
+
+        /**
          * Whether `context.page` exists. Its `getClientUrl()` is how a control
          * finds the organisation for a same-origin metadata `fetch` — the only
          * way to reach `EntityDefinitions`, which `context.webAPI` cannot
-         * address. Not in the typings; absent on canvas and here under `false`.
+         * address. Not in the typings; absent here under `false`, which is
+         * the hub's demo harness.
+         *
+         * **On canvas it is present and `getClientUrl` throws.** Measured with
+         * a host probe on a real canvas app, 2026-09-22 (pcf-row-commands):
+         * the surface is published, and calling it throws `Method not
+         * implemented.` This rig used to leave `page` out on canvas, which
+         * passed a control that tested `typeof page.getClientUrl` and failed
+         * the same control on a real canvas app — the call is the only honest
+         * test, and a thrown refusal is an answer once it is caught.
          */
         page: true,
+
+        /**
+         * What `utils.hasEntityPrivilege(table, privilegeType, depth)`
+         * answers. `privilegeType` is the platform's `PrivilegeType`: Create
+         * 1, Read 2, **Write 3**, **Delete 4**, Assign 5, Share 6, Append 7,
+         * AppendTo 8 — Write measured as 3 on a form (pcf-audit-history R7,
+         * 2026-09-18; the reference page is easy to read one off). `depth`
+         * is Basic 0, Local 1, Deep 2, Global 3.
+         *
+         *   true / false -> every question answers that
+         *   function     -> `fn(privilegeType, depth, table)` answers
+         *   'throws'     -> the call throws, a host that cannot say
+         *
+         * **Synchronous, and a boolean** — the one member of `utils` that is
+         * not a promise. `false` is an ordinary answer about the user's
+         * roles, not a failure, and it is a different state from `utils`
+         * being absent: "the user may not" hides an affordance, "the host
+         * cannot say" leaves it to the server's own refusal. A system
+         * administrator answers `true` to everything, so the `false` branch
+         * is the one only a differently-privileged user reaches — the branch
+         * nobody tests unless a rig can produce it. Same name as the field
+         * rig's switch.
+         */
+        hasPrivilege: true,
+
+        /**
+         * Whether the manifest declares `<uses-feature name="Utility">`.
+         *
+         * **`hasEntityPrivilege` is published either way and throws when it
+         * is not declared** — measured on a model-driven main grid
+         * 2026-09-25 (pcf-row-commands P1): `typeof` answers `"function"`,
+         * and every call throws *Feature 'Utility.hasEntityPrivilege' is required to be specified in the <uses-feature> section in ControlManifest.xml before use.*
+         * So presence is not permission, and the rig cannot read the
+         * manifest: a suite passes what the manifest says.
+         */
+        utilityDeclared: true,
+
+        /**
+         * What `localStorage` is while this host's context is the latest one
+         * handed out.
+         *
+         *   'working' -> a store that holds strings; in a browser page with a
+         *                real `localStorage`, the real one
+         *   'throws'  -> **reading `localStorage` itself throws** a
+         *                `SecurityError`, which is what blocked site data and
+         *                some private windows do — the access, not a method
+         *   'full'    -> reads work and `setItem` throws `QuotaExceededError`
+         *   'absent'  -> `undefined`
+         *
+         * A control that persists a preference has to render correctly under
+         * every one of these, and the first is the only one its author sees.
+         * `storageData` is the backing object: pass the same one to two hosts
+         * to model a reload on the same browser, and read it back through
+         * `handle.storageData()` to assert what was written.
+         */
+        storage: 'working',
+        storageData: null,
 
         /**
          * Whether `utils.lookupObjects` exists while `utils` itself does. A
@@ -473,8 +630,26 @@
              * because that is what a real form does.
              */
             accumulatePages: true,
+            /**
+             * `refresh()` keeps the pages loaded so far. **Off**, because a
+             * real form does not: a refresh after Load more brought back the
+             * first page alone (`pcf-kanban-board`, 2026-09-29).
+             */
+            refreshKeepsPages: false,
             /** `hasPreviousPage` never becomes true. Observed on a real form. */
             previousPageStuck: true,
+            /**
+             * A fetch clears the platform's selection, so
+             * `getSelectedRecordIds()` answers `[]` after it.
+             *
+             * **Off, because the platform kept it**: measured on a subgrid
+             * 2026-09-25 (pcf-row-commands P3), a ribbon Assign on three
+             * selected rows refreshed the subgrid and the next `updateView`
+             * still answered all three. `pcf-data-table`'s SPEC had said the
+             * opposite with no measurement behind it. A page turn with a
+             * selection is still unmeasured, and this is the switch for it.
+             */
+            selectionDropsOnFetch: false,
             /** `totalResultCount` is -1 — common on large views. */
             uncounted: false,
             /**
@@ -596,6 +771,15 @@
 
             /** The HTTP status the relationships `fetch` answers with; anything but 200 is a refusal. */
             relationshipsStatus: 200,
+
+            /**
+             * The status a `$ref` associate or disassociate answers with. 204
+             * is success with no body; 403 is the privilege refusal (Append
+             * on the related table, AppendTo on the parent); 0 is a host with
+             * no network, which arrives as a `TypeError` from `fetch` itself
+             * rather than as a response.
+             */
+            refStatus: 204,
         },
     };
 
@@ -611,6 +795,46 @@
      * assertion that two fetches had been made found none.
      */
     var hostsByUrl = {};
+
+    /**
+     * What `localStorage` answers, decided by the host whose context was
+     * handed out **last**.
+     *
+     * Storage has no origin argument to route by, the way `fetch` has a URL,
+     * so the rule is the nearest honest one: a control reads storage while
+     * handling the context it was just given, or from an event on a control
+     * that host mounted, and suites drive one host at a time. A suite that
+     * interleaves two hosts' events should give them the same `storageData`.
+     */
+    var activeStorage = null;
+
+    function installStorage(scope) {
+        if (scope.__pcfHostStorage) {
+            return;
+        }
+
+        var native;
+
+        try {
+            native = scope.localStorage;
+        } catch (error) {
+            native = undefined;
+        }
+
+        try {
+            Object.defineProperty(scope, 'localStorage', {
+                configurable: true,
+                get: function () {
+                    return activeStorage ? activeStorage(native) : native;
+                },
+            });
+            scope.__pcfHostStorage = true;
+        } catch (error) {
+            // A runtime whose own `localStorage` cannot be replaced keeps it,
+            // and the `storage` switch has no effect there. Said once.
+            scope.__pcfHostStorage = 'native';
+        }
+    }
     var hostCount = 0;
 
     function clientUrlFor(index) {
@@ -646,6 +870,67 @@
             title: title,
             raw: JSON.stringify({ errorCode: code, message: message, title: title }),
         };
+    }
+
+    /**
+     * The `$filter` subset a type-ahead sends, as predicates over a
+     * `fixture.tables` row — or `false` for anything outside it, which the
+     * caller refuses rather than ignores. A stub that ignored an unknown
+     * clause would answer every query with every row and pass a control whose
+     * filter the server would reject.
+     *
+     *   contains(col,'text')     case-insensitive, `''` an escaped quote —
+     *                            measured case-insensitive 2026-09-23
+     *                            (pcf-tag-list P4: "Power Apps" matched 'a')
+     *   col eq null | col ne null
+     *   col eq 'text' | col eq <guid or number>
+     *   … and …
+     */
+    function odataFilter(query) {
+        var match = query.match(/\$filter=([^&]+)/);
+
+        if (!match) {
+            return [];
+        }
+
+        var text = decodeURIComponent(match[1]);
+        var parts = text.split(/\s+and\s+/i);
+        var clauses = [];
+
+        for (var i = 0; i < parts.length; i += 1) {
+            var part = parts[i].trim();
+            var contains = part.match(/^contains\(\s*([A-Za-z0-9_]+)\s*,\s*'((?:[^']|'')*)'\s*\)$/);
+            var compare = part.match(/^([A-Za-z0-9_]+)\s+(eq|ne)\s+(null|'(?:[^']|'')*'|[0-9a-fA-F-]+)$/);
+
+            if (contains) {
+                clauses.push((function (column, needle) {
+                    return function (row) {
+                        return String(row[column] === undefined || row[column] === null ? '' : row[column])
+                            .toLowerCase()
+                            .indexOf(needle) !== -1;
+                    };
+                })(contains[1], contains[2].replace(/''/g, "'").toLowerCase()));
+            } else if (compare) {
+                clauses.push((function (column, operator, literal) {
+                    var wanted = literal === 'null'
+                        ? null
+                        : literal.charAt(0) === "'" ? literal.slice(1, -1).replace(/''/g, "'") : literal;
+
+                    return function (row) {
+                        var have = row[column] === undefined ? null : row[column];
+                        var same = wanted === null
+                            ? have === null
+                            : have !== null && String(have).toLowerCase() === String(wanted).toLowerCase();
+
+                        return operator === 'eq' ? same : !same;
+                    };
+                })(compare[1], compare[2], compare[3]));
+            } else {
+                return false;
+            }
+        }
+
+        return clauses;
     }
 
     function formatted(value) {
@@ -799,8 +1084,74 @@
         var createdPending = [];
         var createdCount = 0;
 
+        /**
+         * The many-to-many links, `{ relationship, ids: [a, b] }` with the two
+         * GUIDs sorted so a link has one spelling whichever side asked. Two
+         * copies for the same reason as `removedPending`: `links` is the
+         * server, which a `$ref` changes on the request, and `linksSeen` is
+         * what the dataset shows, which `fetched()` catches up. Copied per
+         * host, because a stub that mutated the fixture's own array would
+         * hand every later host this one's writes.
+         */
+        var links = (fixture.links || []).map(function (link) {
+            return { relationship: link.relationship, ids: [bare(link.ids[0]), bare(link.ids[1])].sort() };
+        });
+        var linksSeen = links.slice();
+
+        function bare(id) {
+            return String(id).replace(/[{}]/g, '').toLowerCase();
+        }
+
+        function linkIndex(relationship, a, b) {
+            var ids = [bare(a), bare(b)].sort();
+
+            for (var i = 0; i < links.length; i += 1) {
+                if (links[i].relationship === relationship && links[i].ids[0] === ids[0] && links[i].ids[1] === ids[1]) {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
         function log(name, argument) {
             state.calls.push(argument === undefined ? name : name + '(' + JSON.stringify(argument) + ')');
+        }
+
+        /**
+         * A bag as a canvas app publishes it: **every method present, and
+         * each one throwing `Method not implemented.` from the call itself** —
+         * a synchronous throw, not a rejection.
+         *
+         * Measured on a real canvas app 2026-09-22 (`pcf-data-table` SPEC,
+         * *The canvas host, measured*): fifteen of fifteen surfaces present,
+         * and `getEntityMetadata`, `retrieveRecord`, `retrieveMultipleRecords`
+         * and `page.getClientUrl` threw when called. The writes, `openForm`,
+         * `openFile` and `lookupObjects` were not called — they would change
+         * data or take the screen — and are modelled the same way, unmeasured.
+         *
+         * This rig withheld `utils`, `webAPI` and `openForm` on canvas until
+         * 2026-09-29, which certified the rule the measurement disproved:
+         * `typeof x.method === 'function'` is no capability test on canvas.
+         * A control has to test an *answer* — see `page.getClientUrl` below.
+         */
+        function onCanvas(owner, bag) {
+            if (o.host !== 'canvas' || !bag) {
+                return bag;
+            }
+
+            var refusing = {};
+
+            Object.keys(bag).forEach(function (name) {
+                refusing[name] = typeof bag[name] !== 'function'
+                    ? bag[name]
+                    : function () {
+                        log(owner + '.' + name + ' (canvas: not implemented)');
+                        throw new Error(name + ': Method not implemented.');
+                    };
+            });
+
+            return refusing;
         }
 
         /*
@@ -841,14 +1192,259 @@
                 });
             }
 
+            /**
+             * A `$ref` associate or disassociate — the one Web API write a
+             * control cannot make through `context.webAPI`, which has no
+             * relationship verbs. Paths, relative to the service root:
+             *
+             *   POST   <set>(<id>)/<nav>/$ref          { "@odata.id": "<root>/<set2>(<id2>)" }
+             *   DELETE <set>(<id>)/<nav>(<id2>)/$ref
+             *
+             * `<nav>` is the collection-valued navigation property on
+             * `<set>`'s side of the relationship, looked up in
+             * `fixture.manyToMany`; an unknown one is refused the way the
+             * server refuses an undeclared property.
+             *
+             * **Both are idempotent, measured 2026-09-23** (pcf-tag-list P3,
+             * account ↔ cll_tag on a real form): associating a pair already
+             * linked answered 204, and disassociating a pair not linked
+             * answered 204. So is this — a control cannot learn from the
+             * status whether it changed anything, and must not try.
+             */
+            function reference(method, path, init) {
+                var root = CLIENT_URL + '/api/data/v9.2/';
+                var match = path.match(/^([a-z0-9_]+)\(([^)]+)\)\/([A-Za-z0-9_]+)(?:\(([^)]+)\))?\/\$ref$/);
+
+                if (!match) {
+                    return reply(400, { error: { code: '0x80060888', message: 'Malformed $ref path: ' + path } });
+                }
+
+                if (quirks.refStatus === 0) {
+                    return Promise.reject(new TypeError('Failed to fetch'));
+                }
+
+                if (quirks.refStatus !== 204) {
+                    return reply(quirks.refStatus, {
+                        error: {
+                            code: '0x80040220',
+                            message: 'Principal user is missing the privilege to link these records (rig refusal).',
+                        },
+                    });
+                }
+
+                var table = tableForSet(match[1]);
+                var relationship = (fixture.manyToMany || []).filter(function (row) {
+                    return (row.entity1 === table && row.nav1 === match[3]) || (row.entity2 === table && row.nav2 === match[3]);
+                })[0];
+
+                if (!relationship) {
+                    return reply(400, {
+                        error: {
+                            code: '0x80060888',
+                            message: "Could not find a property named '" + match[3] + "' on type 'Microsoft.Dynamics.CRM." + table + "'.",
+                        },
+                    });
+                }
+
+                var other;
+
+                if (method === 'DELETE') {
+                    other = match[4];
+                } else {
+                    var body = {};
+
+                    try {
+                        body = JSON.parse((init && init.body) || '{}');
+                    } catch (error) {
+                        body = {};
+                    }
+
+                    var target = String(body['@odata.id'] || '');
+                    var tail = target.indexOf(root) === 0 ? target.slice(root.length).match(/^[a-z0-9_]+\(([^)]+)\)$/) : null;
+
+                    if (!tail) {
+                        return reply(400, { error: { code: '0x80060888', message: 'The @odata.id is not a record URL on this organisation: ' + target } });
+                    }
+
+                    other = tail[1];
+                }
+
+                var at = linkIndex(relationship.schemaName, match[2], other);
+
+                if (method === 'DELETE' && at !== -1) {
+                    links = links.slice(0, at).concat(links.slice(at + 1));
+                } else if (method === 'POST' && at === -1) {
+                    links = links.concat([{ relationship: relationship.schemaName, ids: [bare(match[2]), bare(other)].sort() }]);
+                }
+
+                return Promise.resolve({
+                    ok: true,
+                    status: 204,
+                    json: function () {
+                        return Promise.reject(new SyntaxError('Unexpected end of JSON input'));
+                    },
+                    text: function () {
+                        return Promise.resolve('');
+                    },
+                });
+            }
+
+            function tableForSet(set) {
+                if ((fixture.entitySetName || fixture.targetEntityType + 's') === set) {
+                    return fixture.targetEntityType;
+                }
+
+                var sets = fixture.entitySets || {};
+                var byMap = Object.keys(sets).filter(function (table) {
+                    return sets[table] === set;
+                })[0];
+
+                if (byMap) {
+                    return byMap;
+                }
+
+                var related = fixture.related || {};
+
+                return Object.keys(related).filter(function (table) {
+                    return related[table].entitySet === set;
+                })[0] || set;
+            }
+
             hostsByUrl[CLIENT_URL] = function (url, init) {
                 var address = String(url);
+                var method = ((init && init.method) || 'GET').toUpperCase();
+                var service = CLIENT_URL + '/api/data/v9.2/';
+
+                if (/\/\$ref$/.test(address) && address.indexOf(service) === 0) {
+                    log('fetch', method + ' ' + address.slice(CLIENT_URL.length));
+
+                    return reference(method, address.slice(service.length), init);
+                }
+
+                /*
+                 * The records a many-to-many links to one record: a GET on the
+                 * collection-valued navigation property, `<set>(<id>)/<nav>`,
+                 * answered from `links` and the other table's `fixture.tables`
+                 * rows, `$select` honoured. How a control learns what is
+                 * already linked beyond the page the dataset holds. Standard
+                 * Web API; not yet measured from a control (pcf-tag-list
+                 * SPEC.md, Not verified).
+                 */
+                var collection = address.indexOf(service) === 0 && method === 'GET'
+                    ? address.slice(service.length).match(/^([a-z0-9_]+)\(([^)]+)\)\/([A-Za-z0-9_]+)(\?.*)?$/)
+                    : null;
+
+                if (collection && collection[1] !== 'EntityDefinitions') {
+                    var ownerTable = tableForSet(collection[1]);
+                    var via = (fixture.manyToMany || []).filter(function (row) {
+                        return (row.entity1 === ownerTable && row.nav1 === collection[3]) || (row.entity2 === ownerTable && row.nav2 === collection[3]);
+                    })[0];
+
+                    log('fetch', 'GET ' + address.slice(CLIENT_URL.length));
+
+                    if (!via) {
+                        return reply(400, { error: { code: '0x80060888', message: "Could not find a property named '" + collection[3] + "'." } });
+                    }
+
+                    if (quirks.relationshipsStatus !== 200) {
+                        return reply(quirks.relationshipsStatus, { error: { code: '0x80040220', message: 'Refused by the rig.' } });
+                    }
+
+                    var otherTable = via.entity1 === ownerTable ? via.entity2 : via.entity1;
+                    var owner = bare(collection[2]);
+                    var linkedIds = links
+                        .filter(function (link) {
+                            return link.relationship === via.schemaName && link.ids.indexOf(owner) !== -1;
+                        })
+                        .map(function (link) {
+                            return link.ids[0] === owner ? link.ids[1] : link.ids[0];
+                        });
+                    var selectMatch = (collection[4] || '').match(/\$select=([^&]+)/);
+                    var columnsWanted = selectMatch ? selectMatch[1].split(',') : null;
+
+                    return reply(200, {
+                        value: ((fixture.tables || {})[otherTable] || [])
+                            .filter(function (row) {
+                                return linkedIds.indexOf(bare(row[otherTable + 'id'])) !== -1;
+                            })
+                            .map(function (row) {
+                                var picked = {};
+
+                                Object.keys(row).forEach(function (key) {
+                                    if (!columnsWanted || columnsWanted.indexOf(key) !== -1) {
+                                        picked[key] = row[key];
+                                    }
+                                });
+
+                                return picked;
+                            }),
+                    });
+                }
 
                 if (address.indexOf(prefix) !== 0) {
                     return Promise.reject(new Error('No fetch for ' + address));
                 }
 
                 log('fetch', address.slice(CLIENT_URL.length));
+
+                var manyToMany = address.slice(prefix.length).match(/^([a-z0-9_]+)'\)\/ManyToManyRelationships(\?.*)?$/i);
+
+                if (manyToMany) {
+                    if (quirks.relationshipsStatus !== 200) {
+                        return reply(quirks.relationshipsStatus, { error: { code: '0x80040220', message: 'Refused by the rig.' } });
+                    }
+
+                    return reply(200, {
+                        value: (fixture.manyToMany || [])
+                            .filter(function (row) {
+                                return row.entity1 === manyToMany[1] || row.entity2 === manyToMany[1];
+                            })
+                            .map(function (row) {
+                                return {
+                                    SchemaName: row.schemaName,
+                                    IntersectEntityName: row.intersect || row.schemaName.toLowerCase(),
+                                    Entity1LogicalName: row.entity1,
+                                    Entity2LogicalName: row.entity2,
+                                    Entity1NavigationPropertyName: row.nav1,
+                                    Entity2NavigationPropertyName: row.nav2,
+                                };
+                            }),
+                    });
+                }
+
+                /*
+                 * The primary key an aggregate counts over — not always
+                 * `<table>id` (an activity's is `activityid`), which is why a
+                 * control reads it. `fixture.primaryIds` names the odd ones;
+                 * everything else answers `<table>id`. Before 2026-09-29 this
+                 * fell through to the relationships reply, and a control's
+                 * read quietly landed on its own guess.
+                 */
+                /*
+                 * Whether the table's Status Reason transitions are applied
+                 * — `false` while they are merely defined, measured
+                 * 2026-09-29 (`pcf-kanban-board` 0.3.7): `TransitionData`
+                 * was filled in on every reason and this still answered
+                 * `false` until *Enable Status Reason Transitions* was
+                 * ticked. `fixture.enforceStateTransitions` turns it on.
+                 */
+                var enforce = address.slice(prefix.length).match(/^([a-z0-9_]+)'\)\?\$select=(?:LogicalName,)?EnforceStateTransitions$/i);
+
+                if (enforce) {
+                    return reply(200, {
+                        LogicalName: enforce[1],
+                        EnforceStateTransitions: enforce[1] === fixture.targetEntityType && fixture.enforceStateTransitions === true,
+                    });
+                }
+
+                var primary = address.slice(prefix.length).match(/^([a-z0-9_]+)'\)\?\$select=PrimaryIdAttribute$/i);
+
+                if (primary) {
+                    return reply(200, {
+                        LogicalName: primary[1],
+                        PrimaryIdAttribute: (fixture.primaryIds || {})[primary[1]] || primary[1] + 'id',
+                    });
+                }
 
                 var definition = address.slice(prefix.length).match(/^([a-z0-9_]+)'\)(\?\$select=EntitySetName)?$/i);
 
@@ -874,6 +1470,7 @@
                     ? {
                         value: (fixture.relationships || []).map(function (row) {
                             return {
+                                SchemaName: row.schemaName || row.navigationProperty,
                                 ReferencingAttribute: row.column,
                                 ReferencedEntity: row.target,
                                 ReferencingEntityNavigationPropertyName: row.navigationProperty,
@@ -906,6 +1503,68 @@
             }
         })();
 
+        /*
+         * This host's `localStorage`, per the `storage` switch in DEFAULTS.
+         *
+         * A store of its own unless the suite hands one in, for the same
+         * reason the rows are copied: a width one host saved must not be
+         * found by the next host a suite creates, or an assertion about the
+         * default passes or fails on the order the tests ran in.
+         */
+        var storageData = o.storageData || {};
+
+        var store = {
+            getItem: function (key) {
+                return Object.prototype.hasOwnProperty.call(storageData, key) ? storageData[key] : null;
+            },
+            setItem: function (key, value) {
+                log('localStorage.setItem', key);
+
+                if (o.storage === 'full') {
+                    var full = new Error('Setting the value of \'' + key + '\' exceeded the quota.');
+                    full.name = 'QuotaExceededError';
+                    throw full;
+                }
+
+                storageData[key] = String(value);
+            },
+            removeItem: function (key) {
+                log('localStorage.removeItem', key);
+                delete storageData[key];
+            },
+            clear: function () {
+                Object.keys(storageData).forEach(function (key) {
+                    delete storageData[key];
+                });
+            },
+            key: function (index) {
+                var keys = Object.keys(storageData);
+
+                return index < keys.length ? keys[index] : null;
+            },
+            get length() {
+                return Object.keys(storageData).length;
+            },
+        };
+
+        function storageFor(native) {
+            if (o.storage === 'absent') {
+                return undefined;
+            }
+
+            if (o.storage === 'throws') {
+                var denied = new Error('Failed to read the \'localStorage\' property from \'Window\': Access is denied for this document.');
+                denied.name = 'SecurityError';
+                throw denied;
+            }
+
+            // A browser page asking for a working store gets the real one,
+            // so the harness shows a preference surviving a reload.
+            return o.storage === 'working' && native && !o.storageData ? native : store;
+        }
+
+        installStorage(typeof globalThis !== 'undefined' ? globalThis : root);
+
         /**
          * One `ConditionExpression` against one row.
          *
@@ -917,14 +1576,26 @@
          */
         function holds(row, condition) {
             var actual = row.values[condition.attributeName];
-            var left = formatted(actual).toLowerCase();
-            var right = formatted(condition.value).toLowerCase();
+
+            // A lookup cell is an EntityReference; a condition on it names the GUID.
+            if (actual && typeof actual === 'object' && actual.id && typeof actual.id.guid === 'string') {
+                actual = actual.id.guid;
+            }
+
+            var left = formatted(actual).toLowerCase().replace(/[{}]/g, '');
+            var right = formatted(condition.value).toLowerCase().replace(/[{}]/g, '');
 
             switch (condition.conditionOperator) {
                 case OPERATOR.Equal:
                     return left === right;
                 case OPERATOR.NotEqual:
                     return left !== right;
+                case OPERATOR.NotNull:
+                    return !(actual === null || actual === undefined || actual === '');
+                case OPERATOR.In:
+                    return (Array.isArray(condition.value) ? condition.value : [condition.value]).some(function (candidate) {
+                        return formatted(candidate).toLowerCase().replace(/[{}]/g, '') === left;
+                    });
                 case OPERATOR.GreaterThan:
                     return Number(actual) > Number(condition.value);
                 case OPERATOR.LessThan:
@@ -1092,11 +1763,32 @@
                     return removed.indexOf(row.id) === -1;
                 });
 
-            return filter
+            var oneToMany = o.relationshipFilter
                 ? alive.filter(function (row) {
-                    return passes(row, filter);
+                    return holds(row, { attributeName: o.relationshipFilter.column, conditionOperator: OPERATOR.Equal, value: o.relationshipFilter.id });
                 })
                 : alive;
+            var related = o.manyToManyFilter
+                ? oneToMany.filter(function (row) {
+                    var ids = [bare(o.manyToManyFilter.id), bare(row.id)].sort();
+
+                    return linksSeen.some(function (link) {
+                        return link.relationship === o.manyToManyFilter.relationship
+                            && link.ids[0] === ids[0] && link.ids[1] === ids[1];
+                    });
+                })
+                : oneToMany;
+            var narrowed = o.hostFilter
+                ? related.filter(function (row) {
+                    return passes(row, o.hostFilter);
+                })
+                : related;
+
+            return filter
+                ? narrowed.filter(function (row) {
+                    return passes(row, filter);
+                })
+                : narrowed;
         }
 
         /** All matching records in the order the current sort puts them. */
@@ -1182,7 +1874,30 @@
 
             if (entry.options && entry.shape === 'descriptor') {
                 node.attributeDescriptor.OptionSet = entry.options.map(function (option) {
-                    var described = { Label: option.label, Value: option.value, IsHidden: false };
+                    /*
+                     * The keys measured 2026-09-29 (`pcf-kanban-board` 0.3.6
+                     * probe, `cll_task`): **`TransitionData` on every
+                     * option** — `null` where no transitions are defined; a
+                     * Status Reason option carries its **`State`** (a number),
+                     * a Status option its **`DefaultStatus`** and
+                     * `InvariantName`. Neither of those two has a `Color` key.
+                     * `state` / `defaultStatus` in the fixture turn them on.
+                     */
+                    var described = {
+                        Label: option.label,
+                        Value: option.value,
+                        TransitionData: option.transitionData === undefined ? null : option.transitionData,
+                        IsHidden: false,
+                    };
+
+                    if (typeof option.state === 'number') {
+                        described.State = option.state;
+                    }
+
+                    if (typeof option.defaultStatus === 'number') {
+                        described.DefaultStatus = option.defaultStatus;
+                        described.InvariantName = option.invariantName || option.label;
+                    }
 
                     /*
                      * **`Color` is on the descriptor array only, never on the
@@ -1225,6 +1940,70 @@
             }
 
             return node;
+        }
+
+        /**
+         * Whether an update names a Status Reason outside the state the record
+         * will be in — which the server refuses rather than repairs.
+         *
+         * Measured 2026-09-29 (`pcf-kanban-board` 0.3.6 probe, T4/T5 on
+         * `cll_task`): `{ statuscode }` alone into a reason of the **other**
+         * state is refused with 2147779592 and a message naming neither — the
+         * server does **not** infer the state; `{ statecode, statuscode }`
+         * together is accepted; `{ statuscode }` within the record's own state
+         * is accepted. Decidable only where the fixture gives each reason its
+         * `state`, so a fixture without one accepts everything, as before.
+         */
+        function statusMismatch(row, data) {
+            var has = function (bag, key) {
+                return Boolean(bag) && Object.prototype.hasOwnProperty.call(bag, key);
+            };
+
+            if (!has(data, 'statuscode')) {
+                return false;
+            }
+
+            var reasons = ((fixture.metadata || {}).statuscode || {}).options || [];
+            var reason = reasons.filter(function (option) {
+                return String(option.value) === String(data.statuscode);
+            })[0];
+
+            if (!reason || typeof reason.state !== 'number') {
+                return false;
+            }
+
+            var current = has(row.committed, 'statecode') ? row.committed.statecode : row.values.statecode;
+            var state = has(data, 'statecode') ? data.statecode : current;
+
+            return state !== undefined && state !== null && Number(state) !== reason.state;
+        }
+
+        /**
+         * Whether an enforced Status Reason transition refuses this update.
+         *
+         * Measured 2026-09-29 (`pcf-kanban-board` 0.3.7, T6, *Enable Status
+         * Reason Transitions* on): **the server enforces a transition only
+         * where the state changes.** Active → Inactive, not allowed, was
+         * refused with 2147807246 and the sentence below, verbatim; Cancelled
+         * → Inactive, not allowed but within one state, was **accepted**.
+         * A reason's `transitionData` in the fixture is the list of reasons
+         * it may move to, the shape `getEntityMetadata` hands over.
+         */
+        function transitionRefused(row, data) {
+            if (fixture.enforceStateTransitions !== true || !data || !Object.prototype.hasOwnProperty.call(data, 'statuscode')) {
+                return false;
+            }
+
+            var reasons = ((fixture.metadata || {}).statuscode || {}).options || [];
+            var current = row.committed && row.committed.statuscode !== undefined ? row.committed.statuscode : row.values.statuscode;
+            var from = reasons.filter(function (option) { return String(option.value) === String(current); })[0];
+            var to = reasons.filter(function (option) { return String(option.value) === String(data.statuscode); })[0];
+
+            if (!from || !to || !Array.isArray(from.transitionData) || from.state === to.state) {
+                return false;
+            }
+
+            return from.transitionData.map(String).indexOf(String(to.value)) === -1;
         }
 
         /** The label a Choice's integer renders as, from `fixture.metadata`. */
@@ -1277,10 +2056,27 @@
                     var value = row.values[name];
                     var type = typeOf(name);
 
+                    /*
+                     * **An empty column formats as `null`, not `''`.** Measured
+                     * on a model-driven main grid 2026-09-25 (pcf-row-commands):
+                     * an account with no name handed the control `null`, and a
+                     * control testing `=== ''` drew a blank row and labelled its
+                     * button "Open null". This rig answered `''` until then —
+                     * the value the control expected and the platform never
+                     * sends — so no suite could reach the blank row. Dataverse
+                     * keeps no empty string for a text column, so a fixture's
+                     * `''` is read as empty too. Measured on a text column; a
+                     * number, choice or lookup left empty is modelled the same
+                     * way and has not been watched.
+                     */
+                    if (value === null || value === undefined || value === '') {
+                        return null;
+                    }
+
                     // The platform never shows a choice as its integer or a
                     // lookup as its object; `String({ id: … })` is
                     // `[object Object]` in a cell.
-                    if (value !== null && value !== undefined && type === 'OptionSet') {
+                    if (type === 'OptionSet') {
                         return optionLabel(name, value);
                     }
 
@@ -1341,7 +2137,11 @@
                 if (quirks.saveRejects) {
                     row.staged = {};
 
-                    return Promise.reject(new Error('The platform refused this write.'));
+                    // A plain object, like `updateRecord`'s: a refused save
+                    // is the platform's shape, never an `Error`.
+                    return Promise.reject(o.rejection !== null
+                        ? o.rejection
+                        : webApiFault(2147746581, 'Access Is Denied', 'The platform refused this write.'));
                 }
 
                 /*
@@ -1382,7 +2182,15 @@
              * catch.
              */
             getFilter: function () {
-                return requestedFilter || undefined;
+                // `relationshipFilter` is deliberately not here: measured, a
+                // subgrid reports nothing of its relationship through this.
+                if (o.hostFilter && requestedFilter) {
+                    // Both in force, as one `And` of two children — a shape a
+                    // control translating filters has to handle either way.
+                    return { conditions: [], filterOperator: AND, filters: [o.hostFilter, requestedFilter] };
+                }
+
+                return requestedFilter || o.hostFilter || undefined;
             },
 
             setFilter: function (expression) {
@@ -1548,8 +2356,38 @@
                 return fixture.targetEntityType;
             },
 
+            /**
+             * The bound view's id. Typed `string`; measured `null` on the
+             * dataset under a bound lookup. A control reads it to fetch the
+             * view's own FetchXML from `savedquery` — see `retrieveRecord`.
+             * **`undefined` on canvas** (measured 2026-09-22), whatever
+             * `viewId` says: a canvas table has no saved view to name.
+             */
+            getViewId: function () {
+                if (o.host === 'canvas') {
+                    return undefined;
+                }
+
+                return o.viewId === undefined ? fixture.viewId || null : o.viewId;
+            },
+
             refresh: function () {
                 log('refresh');
+
+                /*
+                 * **A refresh starts the view again at its first page.**
+                 * Observed on a form 2026-09-29 (`pcf-kanban-board` 0.4.0):
+                 * after Load more twice or three times, the refresh a move
+                 * ended with brought back the first page alone, and every card
+                 * past it vanished until Load more was pressed again. This rig
+                 * kept the loaded range across a refresh until then, which is a
+                 * host on which that bug cannot happen. `refreshKeepsPages`
+                 * restores the old behaviour, for a suite that needs it.
+                 */
+                if (!quirks.refreshKeepsPages) {
+                    state.page = 1;
+                }
+
                 fetched();
             },
 
@@ -1631,10 +2469,19 @@
 
             requestedColumns = [];
 
+            if (quirks.selectionDropsOnFetch && selected.length > 0) {
+                log('selection dropped by the fetch', selected.length);
+                selected = [];
+            }
+
             // Deletes the server has taken arrive with this fetch and not
             // before it. See the note on `removedPending`.
             removed = removed.concat(removedPending);
             removedPending = [];
+
+            // Links likewise: a `$ref` changed the server, and the rows the
+            // dataset shows follow it here. See the note on `links`.
+            linksSeen = links.slice();
 
             // Creates likewise. `concat` rather than `push`, so the fixture's
             // own array is never mutated across binds.
@@ -1647,6 +2494,367 @@
             filter = requestedFilter;
             state.refreshes += 1;
             state.renderOwed = true;
+        }
+
+        /* ------------------------------------------------------------------ */
+        /* FetchXML through the Web API                                         */
+        /* ------------------------------------------------------------------ */
+
+        /**
+         * The FetchXML operator names → the `ConditionOperator` numbers
+         * `holds()` already evaluates, so a FetchXML condition and a dataset
+         * filter condition are judged by the same code. A name not here is
+         * **unhonoured, and passes every row** — the same rule as `holds()`'s
+         * default, for the same reason: "no filtering happened" is a failure
+         * a suite can see, "everything vanished" is not.
+         */
+        var FETCH_OPERATORS = {
+            'eq': OPERATOR.Equal,
+            'ne': OPERATOR.NotEqual,
+            'neq': OPERATOR.NotEqual,
+            'gt': OPERATOR.GreaterThan,
+            'lt': OPERATOR.LessThan,
+            'ge': OPERATOR.GreaterEqual,
+            'le': OPERATOR.LessEqual,
+            'like': OPERATOR.Like,
+            'in': OPERATOR.In,
+            'null': OPERATOR.Null,
+            'not-null': OPERATOR.NotNull,
+            'on': OPERATOR.On,
+            'on-or-before': OPERATOR.OnOrBefore,
+            'on-or-after': OPERATOR.OnOrAfter,
+        };
+
+        function xmlAttr(tag, name) {
+            var m = tag.match(new RegExp('\\b' + name + "=['\"]([^'\"]*)['\"]"));
+            return m ? m[1].replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') : undefined;
+        }
+
+        /**
+         * A `<filter>` element and everything inside it → a `FilterExpression`
+         * `passes()` reads. Nested filters nest; a `<condition>` with
+         * `<value>` children is an `in`. Conditions inside a `<link-entity>`
+         * are dropped with the link-entity, because the rig has no joined
+         * rows to judge them against — a suite asserting a linked filter's
+         * effect is asserting nothing here, and the header says so.
+         */
+        function parseFilter(xml) {
+            var withoutLinks = xml.replace(/<link-entity\b[^>]*\/>/g, '').replace(/<link-entity\b[^>]*>[\s\S]*?<\/link-entity>/g, '');
+            var filters = [];
+
+            // Top-level filters only: nested ones are parsed by recursion on the body.
+            var depth = 0;
+            var body = '';
+            var open = '';
+            var tokens = withoutLinks.match(/<\/?filter\b[^>]*>|[^<]+|<[^>]+>/g) || [];
+
+            tokens.forEach(function (token) {
+                if (/^<filter\b/.test(token)) {
+                    if (depth === 0) {
+                        open = token;
+                        body = '';
+                    } else {
+                        body += token;
+                    }
+                    depth += 1;
+                } else if (/^<\/filter>/.test(token)) {
+                    depth -= 1;
+                    if (depth === 0) {
+                        filters.push(filterOf(open, body));
+                    } else {
+                        body += token;
+                    }
+                } else if (depth > 0) {
+                    body += token;
+                }
+            });
+
+            return filters;
+        }
+
+        function filterOf(openTag, body) {
+            var conditions = [];
+            var conditionPattern = /<condition\b([^>]*?)(\/>|>([\s\S]*?)<\/condition>)/g;
+            var outer = body.replace(/<filter\b[^>]*>[\s\S]*?<\/filter>/g, '');
+            var m;
+
+            while ((m = conditionPattern.exec(outer)) !== null) {
+                var operator = xmlAttr(m[1], 'operator');
+                var values = [];
+                var valuePattern = /<value>([\s\S]*?)<\/value>/g;
+                var v;
+
+                while (m[3] && (v = valuePattern.exec(m[3])) !== null) {
+                    values.push(v[1]);
+                }
+
+                conditions.push({
+                    attributeName: xmlAttr(m[1], 'attribute'),
+                    conditionOperator: Object.prototype.hasOwnProperty.call(FETCH_OPERATORS, operator) ? FETCH_OPERATORS[operator] : -1,
+                    value: values.length > 0 ? values : xmlAttr(m[1], 'value'),
+                });
+            }
+
+            return {
+                conditions: conditions,
+                filterOperator: (xmlAttr(openTag, 'type') || 'and').toLowerCase() === 'or' ? OR : AND,
+                filters: parseFilter(body),
+            };
+        }
+
+        /**
+         * The rows a FetchXML query is judged against: the bound table's own
+         * rows (`allRecords`, minus deletes — **not** narrowed by the host's
+         * filter, because a query carries its own conditions), or a flat
+         * `fixture.tables` row wrapped to look like one.
+         */
+        function fetchRows(entityType) {
+            /*
+             * **The server answers from what it has**, which includes a write
+             * the dataset has not re-read yet: a query sent after
+             * `updateRecord` resolves counts the record where it now is. Rows
+             * are read through their committed values for that reason — until
+             * 2026-09-29 a total asked for right after a move counted the card
+             * in the lane it had left.
+             */
+            if (entityType === fixture.targetEntityType) {
+                return allRecords.filter(function (row) {
+                    return removed.indexOf(row.id) === -1;
+                }).map(function (row) {
+                    return row.committed ? { id: row.id, values: Object.assign({}, row.values, row.committed) } : row;
+                });
+            }
+
+            return ((fixture.tables || {})[entityType] || []).map(function (source) {
+                return { id: source[entityType + 'id'] || '', values: source };
+            });
+        }
+
+        /** The `dategrouping` bucket of a value, in the user's zone — the server groups by the user's calendar. */
+        function dateBucket(value, grouping) {
+            var day = dayOf(value);
+
+            if (day === null) {
+                return null;
+            }
+
+            var year = Number(day.slice(0, 4));
+            var month = Number(day.slice(5, 7));
+            var date = Number(day.slice(8, 10));
+
+            switch (grouping) {
+                case 'year': return { bucket: year, year: year, month: month };
+                case 'quarter': return { bucket: Math.floor((month - 1) / 3) + 1, year: year, month: month };
+                case 'day': return { bucket: date, year: year, month: month };
+                case 'week': {
+                    // SQL Server's DATEPART(week): Sunday start, week 1 holds 1 January.
+                    var jan1 = Date.UTC(year, 0, 1);
+                    var at = Date.UTC(year, month - 1, date);
+                    var dow = new Date(jan1).getUTCDay();
+                    return { bucket: Math.floor((Math.floor((at - jan1) / 86400000) + dow) / 7) + 1, year: year, month: month };
+                }
+                case 'month':
+                default: return { bucket: month, year: year, month: month };
+            }
+        }
+
+        /**
+         * The label the server annotates a group with — a Choice's label, a
+         * lookup's name, Yes/No — under `<alias>@OData.Community.Display.V1
+         * .FormattedValue`. A date bucket gets none: what the platform sends
+         * there is unmeasured (pcf-chart-view SPEC.md P5), and a control
+         * that builds its own label from the bucket needs nothing.
+         */
+        function groupLabel(name, raw) {
+            if (raw && typeof raw === 'object' && typeof raw.name === 'string') {
+                return raw.name;
+            }
+
+            var type = typeOf(name);
+
+            if (type === 'OptionSet' && typeof raw === 'number') {
+                return optionLabel(name, raw);
+            }
+
+            if (type === 'TwoOptions') {
+                return raw === true || raw === 1 ? 'Yes' : 'No';
+            }
+
+            return undefined;
+        }
+
+        /**
+         * Answer a `?fetchXml=` query from the rows: the entity's conditions
+         * applied (link-entities and their conditions ignored — said above),
+         * then either the plain rows or, under `aggregate='true'`, one row
+         * per distinct combination of the `groupby` attributes carrying each
+         * aggregate under its alias.
+         *
+         * Reproduced on purpose, because a control that does not expect them
+         * is wrong on a form: **a FetchXML result omits null-valued
+         * properties**, so a blank group has no `g` at all; a Choice group's
+         * value is its **integer**; a lookup group's is the bare GUID with the
+         * name in the annotation; a `sum`/`avg`/`min`/`max` over no values
+         * is omitted the same way; and `count` on the primary key counts
+         * rows while `countcolumn` counts non-null values. What the server
+         * puts under a `dategrouping` alias — the bucket number, assumed — is
+         * the P5 question.
+         */
+        function answerFetchXml(entityType, xml) {
+            var entityTag = xml.match(/<entity\b[^>]*>/);
+            var entity = entityTag ? xmlAttr(entityTag[0], 'name') : entityType;
+            var fetchTag = xml.match(/<fetch\b[^>]*>/);
+            var aggregate = fetchTag ? xmlAttr(fetchTag[0], 'aggregate') === 'true' : false;
+            var rootOnly = xml.replace(/<link-entity\b[^>]*\/>/g, '').replace(/<link-entity\b[^>]*>[\s\S]*?<\/link-entity>/g, '');
+            var attributes = (rootOnly.match(/<attribute\b[^>]*\/>/g) || []).map(function (tag) {
+                return {
+                    name: xmlAttr(tag, 'name'),
+                    alias: xmlAttr(tag, 'alias'),
+                    groupby: xmlAttr(tag, 'groupby') === 'true',
+                    aggregate: xmlAttr(tag, 'aggregate'),
+                    dategrouping: xmlAttr(tag, 'dategrouping'),
+                };
+            });
+            var filters = parseFilter(rootOnly);
+            var expression = filters.length === 0 ? null : filters.length === 1 ? filters[0] : { conditions: [], filterOperator: AND, filters: filters };
+            var rows = fetchRows(entity).filter(function (row) {
+                return passes(row, expression);
+            });
+
+            log('webAPI.fetchXml', { entity: entity, aggregate: aggregate, attributes: attributes.length, conditions: filters.length, rows: rows.length });
+
+            if (!aggregate) {
+                return Promise.resolve({
+                    entities: rows.map(function (row) {
+                        var out = {};
+                        Object.keys(row.values).forEach(function (key) {
+                            var keep = attributes.length === 0 || attributes.some(function (a) { return a.name === key; });
+                            if (keep && row.values[key] !== null && row.values[key] !== undefined) {
+                                out[key] = row.values[key];
+                            }
+                        });
+                        return out;
+                    }),
+                });
+            }
+
+            if (o.aggregateRefused || rows.length > o.aggregateLimit) {
+                /*
+                 * 0x8004E023 = 2147164195, "AggregateQueryRecordLimit
+                 * exceeded. Cannot perform this operation." — the documented
+                 * code and message; the object shape is the one every other
+                 * refusal here has. Unmeasured: SPEC.md P7.
+                 */
+                return Promise.reject(webApiFault(2147164195, '', 'AggregateQueryRecordLimit exceeded. Cannot perform this operation.'));
+            }
+
+            var groupAttributes = attributes.filter(function (a) { return a.groupby; });
+            var aggregateAttributes = attributes.filter(function (a) { return !a.groupby && a.aggregate; });
+            var groups = {};
+            var order = [];
+
+            rows.forEach(function (row) {
+                var keys = groupAttributes.map(function (a) {
+                    var raw = row.values[a.name];
+
+                    if (raw && typeof raw === 'object' && raw.id && typeof raw.id.guid === 'string') {
+                        raw = raw.id.guid.toLowerCase();
+                    }
+
+                    if (a.dategrouping) {
+                        var bucket = dateBucket(raw, a.dategrouping);
+                        return bucket === null ? null : bucket.bucket;
+                    }
+
+                    return raw === undefined || raw === '' ? null : raw;
+                });
+                var id = JSON.stringify(keys);
+
+                if (!groups[id]) {
+                    groups[id] = { keys: keys, rows: [] };
+                    order.push(id);
+                }
+
+                groups[id].rows.push(row);
+            });
+
+            return Promise.resolve({
+                entities: order.map(function (id) {
+                    var group = groups[id];
+                    var out = {};
+
+                    groupAttributes.forEach(function (a, index) {
+                        var key = group.keys[index];
+
+                        if (key === null) {
+                            return;
+                        }
+
+                        out[a.alias] = key;
+                        out[a.alias + '@OData.Community.Display.V1.AttributeName'] = a.name;
+
+                        var label = a.dategrouping ? undefined : groupLabel(a.name, group.rows[0].values[a.name]);
+
+                        if (label !== undefined) {
+                            out[a.alias + '@OData.Community.Display.V1.FormattedValue'] = label;
+                        }
+                    });
+
+                    aggregateAttributes.forEach(function (a) {
+                        var values = group.rows.map(function (row) {
+                            return row.values[a.name];
+                        });
+                        var numbers = values.filter(function (v) {
+                            return typeof v === 'number' && isFinite(v);
+                        });
+                        var result;
+
+                        switch (a.aggregate) {
+                            case 'count':
+                                result = group.rows.length;
+                                break;
+                            case 'countcolumn':
+                                result = values.filter(function (v) { return v !== null && v !== undefined && v !== ''; }).length;
+                                break;
+                            case 'sum':
+                                result = numbers.length === 0 ? undefined : numbers.reduce(function (s, v) { return s + v; }, 0);
+                                break;
+                            case 'avg':
+                                result = numbers.length === 0 ? undefined : numbers.reduce(function (s, v) { return s + v; }, 0) / numbers.length;
+                                break;
+                            case 'min':
+                                result = numbers.length === 0 ? undefined : Math.min.apply(null, numbers);
+                                break;
+                            case 'max':
+                                result = numbers.length === 0 ? undefined : Math.max.apply(null, numbers);
+                                break;
+                            default:
+                                result = undefined;
+                        }
+
+                        /*
+                         * **Every alias names its column and carries a
+                         * formatted value** — measured 2026-09-29
+                         * (`pcf-kanban-board` 0.3.6, A2): a Money sum
+                         * `m0: 25` beside "$25.00", a count `n: 10` beside
+                         * "10", each with `AttributeName`. The rig left
+                         * them out until then, so `describesPlan` — the one
+                         * integrity check on this route — passed vacuously
+                         * in every suite. Money is formatted in dollars
+                         * here; the server uses the record's currency.
+                         */
+                        if (result !== undefined) {
+                            out[a.alias] = result;
+                            out[a.alias + '@OData.Community.Display.V1.AttributeName'] = a.name;
+                            out[a.alias + '@OData.Community.Display.V1.FormattedValue'] = typeOf(a.name) === 'Currency'
+                                ? '$' + Number(result).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                                : String(result);
+                        }
+                    });
+
+                    return out;
+                }),
+            });
         }
 
         /**
@@ -1685,53 +2893,47 @@
                 },
             };
 
-            /*
-             * Model-driven only — **and published on canvas anyway**, which is
-             * a different thing. Measured with a host probe on a real canvas
-             * app, 2026-09-22: every surface asked about came back present,
-             * refusing only when called. Omitting the method here made a
-             * `typeof` guard fail locally and pass on the platform.
+            /**
+             * Logged in full, **both arguments**, because the options *are*
+             * the behaviour: whether `useQuickCreateForm` was set, whether
+             * `createFromEntity` named the parent, whether `entityId` was left
+             * out for a create — and what the second argument carried.
+             * `openForm(options, parameters)` takes a `{ [column]: string }`
+             * of field values the form opens with, and it is how a quick
+             * create arrives with a column already set (`pcf-kanban-board`'s
+             * "+" passes the lane). A stub that logged the options alone would
+             * certify a button that opens a blank form. Logged as one object
+             * so a suite can `JSON.parse` the call. Resolves
+             * `o.openFormReturns` — see DEFAULTS for the measured shapes.
+             *
+             * Published on canvas too, where it refuses from the call — see
+             * `onCanvas`.
              */
-            if (o.openForm !== false) {
-                /**
-                 * Logged in full, **both arguments**, because the options
-                 * *are* the behaviour: whether `useQuickCreateForm` was set,
-                 * whether `createFromEntity` named the parent, whether
-                 * `entityId` was left out for a create — and what the second
-                 * argument carried. `openForm(options, parameters)` takes a
-                 * `{ [column]: string }` of field values the form opens
-                 * with, and it is how a quick create arrives with a column
-                 * already set (`pcf-kanban-board`'s "+" passes the lane).
-                 * A stub that logged the options alone would certify a
-                 * button that opens a blank form. Logged as one object so a
-                 * suite can `JSON.parse` the call. Resolves
-                 * `o.openFormReturns` — see DEFAULTS for the measured shapes.
-                 */
-                navigation.openForm = function (formOptions, parameters) {
-                    log('navigation.openForm', { options: formOptions, parameters: parameters });
+            navigation.openForm = function (formOptions, parameters) {
+                if (o.host === 'canvas') {
+                    log('navigation.openForm (canvas: not implemented)');
+                    throw new Error('openForm: Method not implemented.');
+                }
 
-                    /*
-                     * **Canvas publishes this and refuses it.** Measured with a
-                     * host probe on a real canvas app, 2026-09-22:
-                     * `navigation.openForm` came back `present: true` along
-                     * with every other surface asked about. Gating the whole
-                     * object on the host made `canCreate` false here for a
-                     * reason that is not the platform's — so the "+" was
-                     * withheld in this rig and drawn in a real canvas app.
-                     */
-                    if (o.host === 'canvas') {
-                        throw new Error('openForm: Method not implemented.');
-                    }
+                log('navigation.openForm', { options: formOptions, parameters: parameters });
 
-                    return Promise.resolve(o.openFormReturns);
-                };
+                return Promise.resolve(o.openFormReturns);
+            };
+
+            // `openForm: false` — a host that leaves the method out (the hub's demo).
+            if (!o.openForm) {
+                delete navigation.openForm;
             }
 
-            // Documented model-driven apps only, and a canvas host has no
-            // switch to say otherwise — `openFile: true` under `host: 'canvas'`
-            // would be a host that does not exist.
-            if (o.openFile && o.host !== 'canvas') {
+            // Documented model-driven apps only — and published on canvas
+            // anyway, where it refuses from the call (see `onCanvas`).
+            if (o.openFile) {
                 navigation.openFile = function (file, fileOptions) {
+                    if (o.host === 'canvas') {
+                        log('navigation.openFile (canvas: not implemented)');
+                        throw new Error('openFile: Method not implemented.');
+                    }
+
                     log('navigation.openFile', {
                         fileName: (file || {}).fileName,
                         fileSize: (file || {}).fileSize,
@@ -1807,8 +3009,13 @@
         }
 
         function createContext() {
-            var parameters = {
-                records: dataset,
+            activeStorage = storageFor;
+
+            var parameters = {};
+
+            parameters[o.datasetName] = dataset;
+
+            Object.assign(parameters, {
 
                 /*
                  * **The control's `pageSize` input is not the host's page size,
@@ -1832,7 +3039,7 @@
                     raw: Object.hasOwn(o.inputs, 'pageSize') ? o.inputs.pageSize : null,
                     type: 'Whole.None',
                 },
-            };
+            });
 
             // The control's own inputs, wrapped the way the platform hands them
             // over. A raw `null` is a real value here — an input the maker left
@@ -1901,27 +3108,9 @@
                  * does for a column that is not a choice or a lookup.
                  */
                 utils: o.utils
-                    ? {
+                    ? onCanvas('utils', {
                         getEntityMetadata: function (entityName, attributes) {
                             log('utils.getEntityMetadata', { entity: entityName, attributes: attributes });
-
-                            /*
-                             * **Canvas publishes `utils` and refuses to run it,
-                             * synchronously.** Measured on a real canvas app,
-                             * 2026-09-21. This rig omitted the object there,
-                             * which made it a friendlier host than the platform
-                             * and hid a crash: a control guarding with
-                             * `typeof … === 'function'` passes here and then
-                             * meets a throw in a real app.
-                             *
-                             * Thrown, not rejected — that distinction is the
-                             * whole defect. A rejection is catchable; a
-                             * synchronous throw escapes the call and takes the
-                             * lifecycle with it.
-                             */
-                            if (o.host === 'canvas') {
-                                throw new Error('getEntityMetadata: Method not implemented.');
-                            }
 
                             if (quirks.metadataRejects) {
                                 return Promise.reject(new Error('Metadata for ' + entityName + ' could not be read.'));
@@ -1969,7 +3158,15 @@
 
                             Object.defineProperty(Metadata.prototype, 'PrimaryNameAttribute', {
                                 get: function () {
-                                    return entityName === 'contact' ? 'fullname' : 'name';
+                                    return (fixture.primaryNames || {})[entityName]
+                                        || (entityName === 'contact' ? 'fullname' : 'name');
+                                },
+                            });
+
+                            // `<table>id` on every table, standard and custom alike.
+                            Object.defineProperty(Metadata.prototype, 'PrimaryIdAttribute', {
+                                get: function () {
+                                    return entityName + 'id';
                                 },
                             });
 
@@ -1999,25 +3196,46 @@
                                     : []);
                             }
                             : undefined,
-                    }
+
+                        /**
+                         * About the user's roles, synchronously — see
+                         * `hasPrivilege` in DEFAULTS for the numbers and the
+                         * three shapes. Both arguments logged, because which
+                         * privilege a control asked about *is* the decision.
+                         */
+                        hasEntityPrivilege: function (entityTypeName, privilegeType, privilegeDepth) {
+                            log('utils.hasEntityPrivilege', {
+                                entityTypeName: entityTypeName,
+                                privilegeType: privilegeType,
+                                privilegeDepth: privilegeDepth,
+                            });
+
+                            if (!o.utilityDeclared) {
+                                throw new Error("Feature 'Utility.hasEntityPrivilege' is required to be specified in the <uses-feature> section in ControlManifest.xml before use.");
+                            }
+
+                            if (o.hasPrivilege === 'throws') {
+                                throw new Error('hasEntityPrivilege: refused by the rig.');
+                            }
+
+                            return typeof o.hasPrivilege === 'function'
+                                ? Boolean(o.hasPrivilege(privilegeType, privilegeDepth, entityTypeName))
+                                : Boolean(o.hasPrivilege);
+                        },
+                    })
                     : undefined,
 
                 /**
                  * `context.page`, which is not in the typings. Its
                  * `getClientUrl` is how a control finds the organisation for a
-                 * metadata `fetch`; absent on canvas and under `page: false`.
+                 * metadata `fetch`; absent under `page: false`, **present and
+                 * throwing on canvas** — see DEFAULTS.
                  */
                 page: o.page
                     ? {
                         getClientUrl: function () {
-                            /*
-                             * **Canvas publishes every surface and refuses on the call**,
-                             * thrown rather than rejected — measured with the host probe on a
-                             * real canvas app, 2026-09-22. Omitting the object here made this
-                             * rig the opposite of the platform: a `typeof` guard failed
-                             * locally and passed there, so a control offering a feature on
-                             * canvas it can only fail at passed every assertion.
-                             */
+                            log('page.getClientUrl');
+
                             if (o.host === 'canvas') {
                                 throw new Error('getClientUrl: Method not implemented.');
                             }
@@ -2048,13 +3266,14 @@
                  * an `Error` would pass a control that renders the string
                  * "[object Object]" where the platform's explanation belongs.
                  */
-                // Forced absent on canvas however the switch is set, on the
-                // same rule as `utils` and `page`: WebAPI is Dataverse-dependent
-                // and is not available in canvas apps, whatever the manifest
-                // declares. A rig that could be told "canvas, with a Web API"
-                // would pass a control that works nowhere.
+                // Published on canvas and refusing from every call, on the
+                // same rule as `utils` and `page` — see `onCanvas`. WebAPI is
+                // Dataverse-dependent and does not *work* in canvas apps,
+                // whatever the manifest declares; that is not the same as
+                // being absent there, and a control that feature-detects
+                // `updateRecord` offers a write canvas can only refuse.
                 webAPI: o.webAPI
-                    ? {
+                    ? onCanvas('webAPI', {
                         /**
                          * **The row arrives on the next fetch, not on the
                          * call.** `createRecord` resolves with the new id and
@@ -2097,7 +3316,7 @@
                             log('webAPI.createRecord', { entity: entityType, data: logged });
 
                             if (o.webApiFails) {
-                                return Promise.reject(webApiFault(
+                                return Promise.reject(o.rejection !== null ? o.rejection : webApiFault(
                                     2147746581,
                                     '',
                                     'The record could not be created.',
@@ -2186,8 +3405,9 @@
 
                         /**
                          * A query, answered from `fixture.tables[entity]` —
-                         * rows keyed by logical name — with the `$select` and
-                         * `$top` honoured and everything else ignored. Not the
+                         * rows keyed by logical name — with `$select`, `$top`,
+                         * `$orderby` and a `$filter` subset honoured (see
+                         * `odataFilter`; anything outside it is refused). Not the
                          * bound view, which is `dataset`; this is for the
                          * *other* table a control reads once, the way an
                          * uploader reads `organization.maxuploadfilesize` to
@@ -2197,18 +3417,6 @@
                          * the control has to handle it either way.
                          */
                         retrieveMultipleRecords: function (entityType, options) {
-                            /*
-                             * **Canvas publishes every surface and refuses on the call**,
-                             * thrown rather than rejected — measured with the host probe on a
-                             * real canvas app, 2026-09-22. Omitting the object here made this
-                             * rig the opposite of the platform: a `typeof` guard failed
-                             * locally and passed there, so a control offering a feature on
-                             * canvas it can only fail at passed every assertion.
-                             */
-                            if (o.host === 'canvas') {
-                                throw new Error('retrieveMultipleRecords: Method not implemented.');
-                            }
-
                             log('webAPI.retrieveMultipleRecords', entityType + ' ' + (options || ''));
 
                             if (o.webApiFails) {
@@ -2220,10 +3428,47 @@
                             }
 
                             var query = String(options || '');
+
+                            if (/^\?fetchXml=/i.test(query)) {
+                                var xml = query.slice(query.indexOf('=') + 1);
+
+                                if (xml.charAt(0) !== '<') {
+                                    xml = decodeURIComponent(xml);
+                                }
+
+                                return answerFetchXml(entityType, xml);
+                            }
+
                             var top = query.match(/\$top=(\d+)/);
                             var select = query.match(/\$select=([^&]+)/);
                             var wanted = select ? select[1].split(',') : null;
-                            var rows = ((fixture.tables || {})[entityType] || []).slice(0, top ? Number(top[1]) : undefined);
+                            var clauses = odataFilter(query);
+
+                            if (clauses === false) {
+                                return Promise.reject(webApiFault(
+                                    2147746581,
+                                    '',
+                                    'The rig does not understand this $filter: ' + query,
+                                ));
+                            }
+
+                            var order = query.match(/\$orderby=([A-Za-z0-9_]+)( desc)?/);
+                            var matched = ((fixture.tables || {})[entityType] || []).filter(function (row) {
+                                return clauses.every(function (clause) {
+                                    return clause(row);
+                                });
+                            });
+
+                            if (order) {
+                                matched = matched.slice().sort(function (a, b) {
+                                    var x = String(a[order[1]] === undefined || a[order[1]] === null ? '' : a[order[1]]).toLowerCase();
+                                    var y = String(b[order[1]] === undefined || b[order[1]] === null ? '' : b[order[1]]).toLowerCase();
+
+                                    return (x < y ? -1 : x > y ? 1 : 0) * (order[2] ? -1 : 1);
+                                });
+                            }
+
+                            var rows = matched.slice(0, top ? Number(top[1]) : undefined);
 
                             return Promise.resolve({
                                 entities: rows.map(function (source) {
@@ -2263,22 +3508,12 @@
                          * write is not a re-read.
                          */
                         updateRecord: function (entityType, id, data) {
-                            /*
-                             * **Canvas publishes every surface and refuses on the call**,
-                             * thrown rather than rejected — measured with the host probe on a
-                             * real canvas app, 2026-09-22. Omitting the object here made this
-                             * rig the opposite of the platform: a `typeof` guard failed
-                             * locally and passed there, so a control offering a feature on
-                             * canvas it can only fail at passed every assertion.
-                             */
-                            if (o.host === 'canvas') {
-                                throw new Error('updateRecord: Method not implemented.');
-                            }
-
                             log('webAPI.updateRecord', { entity: entityType, id: id, data: data });
 
                             if (o.webApiFails) {
-                                return Promise.reject(webApiFault(2147781913, '', PAYLOAD_FAULT));
+                                return Promise.reject(o.rejection !== null
+                                    ? o.rejection
+                                    : webApiFault(2147781913, '', PAYLOAD_FAULT));
                             }
 
                             var row = allRecords.filter(function (candidate) {
@@ -2290,6 +3525,22 @@
                                     2147746327,
                                     'Record Is Unavailable',
                                     'The requested record was not found.',
+                                ));
+                            }
+
+                            if (statusMismatch(row, data)) {
+                                return Promise.reject(webApiFault(
+                                    2147779592,
+                                    'State code or status code is invalid.',
+                                    'State code is invalid or state code is valid but status code is invalid for a specified state code.',
+                                ));
+                            }
+
+                            if (transitionRefused(row, data)) {
+                                return Promise.reject(webApiFault(
+                                    2147807246,
+                                    '',
+                                    'Action could not be taken for few records before of status reason transition restrictions.',
                                 ));
                             }
 
@@ -2357,19 +3608,31 @@
                         },
 
                         retrieveRecord: function (entityType, id, options) {
-                            /*
-                             * **Canvas publishes every surface and refuses on the call**,
-                             * thrown rather than rejected — measured with the host probe on a
-                             * real canvas app, 2026-09-22. Omitting the object here made this
-                             * rig the opposite of the platform: a `typeof` guard failed
-                             * locally and passed there, so a control offering a feature on
-                             * canvas it can only fail at passed every assertion.
-                             */
-                            if (o.host === 'canvas') {
-                                throw new Error('retrieveRecord: Method not implemented.');
-                            }
-
                             log('webAPI.retrieveRecord', entityType + ' ' + id + ' ' + (options || ''));
+
+                            /*
+                             * A saved query is an ordinary table: `savedquery`
+                             * for a system view, `userquery` for a personal
+                             * one, and a control that wants the view's own
+                             * FetchXML reads `fetchxml` off it by the id
+                             * `getViewId()` gave. Answered from
+                             * `fixture.views`, keyed by id and naming the
+                             * table each lives in; an id in the other table
+                             * is "not found", which is how a control learns to
+                             * try both.
+                             */
+                            if (entityType === 'savedquery' || entityType === 'userquery') {
+                                var view = (fixture.views || {})[String(id).replace(/[{}]/g, '').toLowerCase()];
+
+                                if (!o.viewsReadable || !view || (view.table || 'savedquery') !== entityType) {
+                                    return Promise.reject(webApiFault(2147746581, 'Record Is Unavailable', 'The requested record was not found.'));
+                                }
+
+                                var viewRow = { fetchxml: view.fetchxml, name: view.name || fixture.title };
+                                viewRow[entityType + 'id'] = id;
+
+                                return Promise.resolve(viewRow);
+                            }
 
                             var match = null;
 
@@ -2425,7 +3688,7 @@
                             log('webAPI.deleteRecord', entityType + ' ' + id);
 
                             if (o.webApiFails) {
-                                return Promise.reject({
+                                return Promise.reject(o.rejection !== null ? o.rejection : {
                                     errorCode: 2147746581,
                                     message: 'The record could not be deleted.',
                                 });
@@ -2453,7 +3716,7 @@
                                 name: gone && primary ? formatted(gone.values[primary.name]) : '',
                             });
                         },
-                    }
+                    })
                     : undefined,
 
                 navigation: buildNavigation(),
@@ -2539,6 +3802,16 @@
             state: state,
             quirks: quirks,
             options: o,
+            /** What this host's `localStorage` holds — pass it to a second host to model a reload. */
+            storageData: function () {
+                return storageData;
+            },
+            /** The server's many-to-many links as they stand, whatever the dataset has fetched. */
+            links: function () {
+                return links.map(function (link) {
+                    return { relationship: link.relationship, ids: link.ids.slice() };
+                });
+            },
             /** True while the control has asked for data it has not re-rendered against. */
             renderOwed: function () {
                 return state.renderOwed;
