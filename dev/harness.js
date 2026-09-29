@@ -94,6 +94,7 @@
             openFile: document.getElementById('harness-openfile').checked,
             dialogs: document.getElementById('harness-dialogs').value,
             quirks: {
+                saveRejects: document.getElementById('harness-saverejects').checked,
                 accumulatePages: document.getElementById('harness-accumulate').checked,
                 previousPageStuck: document.getElementById('harness-stuck').checked,
                 uncounted: document.getElementById('harness-uncounted').checked,
