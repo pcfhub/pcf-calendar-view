@@ -21,10 +21,10 @@ back each time with the sentence and no busy mark.
 
 | | Look at | Right way | Measured |
 | --- | --- | --- | --- |
-| W1 | **Events per fetch** below the month's events, **Load more** until all are shown, drag an event from the last page to another day | Lands; every event stays on the calendar | |
-| W2 | The same on the timeline, dragging a bar's edge | Resizes; every bar stays | |
-| W3 | A month with fewer events than a page, a move | As before 0.2.4 | |
-| W4 | **+** on a day, save | The event appears; the range starts again at its first page (documented) | |
+| W1 | **Events per fetch** below the month's events, **Load more** until all are shown, drag an event from the last page to another day | Lands; every event stays on the calendar || **Passed** 2026-09-29 |
+| W2 | The same on the timeline, dragging a bar's edge | Resizes; every bar stays || **Passed** 2026-09-29 |
+| W3 | A month with fewer events than a page, a move | As before 0.2.4 || **Passed** 2026-09-29 |
+| W4 | **+** on a day, save | The event appears; the range starts again at its first page (documented) || **Passed** 2026-09-29 |
 
 ## Measured — the 0.2.0 timeline walkthrough, 17 September 2026
 
