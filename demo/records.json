@@ -57,6 +57,7 @@
                 "entitySet": "cr123_appointments",
                 "primaryId": "cr123_appointmentid",
                 "primaryName": "cr123_subject",
+                "displayName": "Appointment",
                 "columns": {
                     "cr123_starton": { "behavior": "userlocal" },
                     "cr123_endon": { "behavior": "userlocal" },
