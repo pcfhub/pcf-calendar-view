@@ -38,7 +38,7 @@
     "datasetFixture": "demo/records.json",
     "limitations": [
       "The calendar opens on September 2026, not on today. The fixture’s events are fixed dates and the harness cannot follow the clock, so the presets set the Opens on property; on a form that property is empty and the calendar opens on the user’s today.",
-      "Times are shown in your browser’s time zone. On a form the control asks userSettings.getTimeZoneOffsetMinutes() for the Dataverse user’s zone and places each event by that, which is the day the user means; the demo has no Dataverse user, so its getTimeZoneOffsetMinutes() answers with your browser’s zone.",
+      "Times are shown for a user in New York, whatever your own time zone. On a form the control asks userSettings.getTimeZoneOffsetMinutes() for the Dataverse user’s zone and places each event by that, which is the day the user means; each preset names that zone for the demo’s user (America/New_York), so the fixture’s events sit at the same times for every visitor: Sprint planning at 10:00 AM, Board dinner at 7:30 PM.",
       "Events are placed by their columns’ behaviour, read through getEntityMetadata as on a model-driven form: the demo’s stand-in Dataverse describes Starts and Ends as User Local, so every event is an instant placed in the user’s zone. That is why no event here is a whole day — a User Local column cannot hold one, and a Date Only column, which can, places its day the same everywhere. Where no behaviour can be read, as in a canvas app, the control falls back to the value’s shape and takes UTC midnight as a whole day.",
       "Events take their colour from the Kind column’s options, which the stand-in Dataverse describes with a colour each, the way a form reads them from the option set’s metadata. The week view shows the option’s label beside the time.",
       "Stepping to another month fetches it, as on a form: the control sends the visible range as a filter \u2014 start \u2264 last day AND (end \u2265 first day OR end is empty) \u2014 and refreshes, and the demo applies that filter to the fixture. Every fixture event falls in September, so the months either side show only the September days at the edges of their grids.",
@@ -63,6 +63,9 @@
           "showTimes": true,
           "pageSize": 50
         },
+        "state": {
+          "timeZone": "America/New_York"
+        },
         "isDefault": true
       },
       {
@@ -78,6 +81,9 @@
           "openOnEventClick": true,
           "showTimes": true,
           "pageSize": 50
+        },
+        "state": {
+          "timeZone": "America/New_York"
         }
       },
       {
@@ -93,6 +99,9 @@
           "openOnEventClick": true,
           "showTimes": true,
           "pageSize": 50
+        },
+        "state": {
+          "timeZone": "America/New_York"
         }
       },
       {
@@ -108,6 +117,9 @@
           "openOnEventClick": false,
           "showTimes": false,
           "pageSize": 50
+        },
+        "state": {
+          "timeZone": "America/New_York"
         }
       }
     ]
