@@ -4,6 +4,7 @@
   "slug": "pcf-calendar-view",
   "name": "Calendar View",
   "tagline": "A Dataverse view as a month, week or timeline calendar, by a date column — drag to reschedule, drag a bar's edge to resize, click a day to create.",
+  "summary": "Shows a Dataverse view as a month, a week or a timeline, placed by a date column. Drag an event to another day to reschedule it, drag an end of its bar on the timeline to change how long it runs, and press **+** on a day to create one.\n\n- Fetches only the range on screen, so a view of ten thousand appointments loads the thirty it needs\n- Places each event on the day its user means, from the column's behaviour and the user's time zone\n- Writes a move back to the start and end columns, with a keyboard route from each event's menu",
   "category": "data",
   "hosts": ["canvas", "model-driven"],
   "tags": ["react", "calendar", "timeline", "gantt", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
