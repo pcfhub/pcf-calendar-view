@@ -10,6 +10,10 @@ A Dataverse view as a month, a week or a timeline, by a date column. Drag an
 event to another day to reschedule it; on the timeline, drag an end of its bar
 to change how long it runs; press **+** to create one.
 
+:::callout{type=warning}
+**Reference example · built with AI.** This control was written with AI (Claude) and tested on a live Dataverse form; its code has not been reviewed line by line. It is published as a worked example and is not maintained — read the source and [SPEC.md](https://github.com/pcfhub/pcf-calendar-view/blob/main/SPEC.md) (what was measured on the form) before you use it. Fixes are not guaranteed.
+:::
+
 ::image{src=media/screenshot-month-v2.png alt="A month of appointments, one dragged to a new day" zoom}
 
 ::image{src=media/screenshot-timeline-selected.png alt="The same month as a timeline: one row per event, a bar from its start to its end, and the 9th selected in the header" zoom}

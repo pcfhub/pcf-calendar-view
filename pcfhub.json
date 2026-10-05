@@ -8,6 +8,8 @@
   "category": "data",
   "hosts": ["canvas", "model-driven"],
   "tags": ["react", "calendar", "timeline", "gantt", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
+  "supportLevel": "reference",
+  "builtWith": "ai",
 
   "control": {
     "namespace": "PCFHub",
