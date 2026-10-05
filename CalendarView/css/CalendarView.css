@@ -1023,8 +1023,16 @@ button.CalendarView-eventTitle:focus-visible {
     flex-basis: calc(100% - 24px);
 }
 
+/* A medium block: the start time in front of a title that wraps onto the second line. */
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-medium .CalendarView-eventTitle {
+    white-space: normal;
+    flex-basis: calc(100% - 24px);
+}
+
+/* The range wraps rather than clips: "8:00 AM – 10:00 AM" is wider than a day column on most forms. */
 .CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-roomy .CalendarView-eventTime {
     display: block;
+    white-space: normal;
 }
 
 .CalendarView .CalendarView-hours .CalendarView-hoursEvent .CalendarView-eventMenu {
@@ -1078,10 +1086,11 @@ button.CalendarView-eventTitle:focus-visible {
     background-color: var(--colorNeutralForeground3, #616161);
 }
 
-/* Narrow: a shorter axis; the days keep their minimum and the grid scrolls sideways inside its box. */
-.CalendarView--narrow .CalendarView-hours {
-    --CalendarView-hoursAxis: 44px;
-}
+/*
+  Narrow: nothing changes. The days keep their minimum and the grid scrolls
+  sideways inside its box; the axis keeps its 56px, because at 44px "10:00 AM"
+  was clipped at the start (the 373px screenshot, 2026-10-04).
+*/
 
 @media (forced-colors: active) {
     .CalendarView-event,

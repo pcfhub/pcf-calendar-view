@@ -1585,15 +1585,16 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
         );
     };
 
-    const title = (event: CalendarEvent, prefix: string | null): React.ReactElement =>
+    /** The title, with the time in front where there is room for it; the tooltip always says both. */
+    const title = (event: CalendarEvent, prefix: string | null, tooltip: string = event.title): React.ReactElement =>
         props.openOnEventClick ? (
-            <button type="button" className="CalendarView-eventTitle" disabled={props.disabled} title={event.title} onClick={(): void => open(event.id)}>
+            <button type="button" className="CalendarView-eventTitle" disabled={props.disabled} title={tooltip} onClick={(): void => open(event.id)}>
                 {prefix && <span className="CalendarView-eventTime">{prefix}</span>}
                 {prefix && ' '}
                 {event.title}
             </button>
         ) : (
-            <span className="CalendarView-eventTitle" title={event.title}>
+            <span className="CalendarView-eventTitle" title={tooltip}>
                 {prefix && <span className="CalendarView-eventTime">{prefix}</span>}
                 {prefix && ' '}
                 {event.title}
@@ -1755,17 +1756,24 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
                                     const { event } = block;
                                     const busy = props.moving.indexOf(event.id) >= 0;
                                     const height = Math.max(((block.end - block.start) / 60) * HOUR_PX - 2, 18);
-                                    const roomy = height >= 40;
+                                    /*
+                                     * Three sizes of block, by its height in 16px lines — each
+                                     * found by looking: a short one (under two lines) is the
+                                     * title alone, since "9:00 AM D…" was all a time in front
+                                     * left of it; a medium one puts the start time in front of
+                                     * a title that wraps, since a one-hour block with the range
+                                     * on its own line had no line left for "Sprint planning"
+                                     * (the dark screenshot); a tall one has the range on a line
+                                     * of its own, and the badge.
+                                     */
+                                    const size = height >= 64 ? 'roomy' : height >= 34 ? 'medium' : 'short';
+                                    const roomy = size === 'roomy';
                                     const time = props.showTimes
                                         ? roomy && event.end
                                             ? `${formatTime(event.start, props.names)} – ${formatTime(event.end, props.names)}`
                                             : formatTime(event.start, props.names)
                                         : null;
-                                    const classes = ['CalendarView-hoursEvent'];
-
-                                    if (roomy) {
-                                        classes.push('is-roomy');
-                                    }
+                                    const classes = ['CalendarView-hoursEvent', `is-${size}`];
 
                                     if (busy) {
                                         classes.push('is-moving');
@@ -1799,7 +1807,15 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
                                             onPointerUp={(pointer): void => finish(pointer, false)}
                                             onPointerCancel={(pointer): void => finish(pointer, true)}
                                         >
-                                            {title(event, time)}
+                                            {/*
+                                                A short block is the title alone: its place in the
+                                                column already says when, and in front of the title
+                                                the time took the whole line ("9:00 AM D…" on a week
+                                                at 760px — the first screenshot). A Day view's one
+                                                column has the width for both on a line. The tooltip
+                                                keeps both everywhere.
+                                            */}
+                                            {title(event, size !== 'short' || days.length === 1 ? time : null, time ? `${time} ${event.title}` : event.title)}
                                             {event.badge && roomy && <span className="CalendarView-eventBadge">{event.badge}</span>}
                                             {menu(event, block.end - block.start, busy, true)}
                                             {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}

@@ -18,7 +18,8 @@
     "lint": "eslint CalendarView --ext .ts,.tsx",
     "bump": "node scripts/version.mjs",
     "release": "node scripts/release.mjs",
-    "demo-check": "node dev/demo-check.js"
+    "demo-check": "node dev/demo-check.js",
+    "shots": "node dev/shots.js"
   },
   "devDependencies": {
     "@fluentui/react-components": "9.46.2",
