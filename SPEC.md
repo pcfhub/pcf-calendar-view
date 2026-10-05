@@ -101,7 +101,25 @@ the root `allocatedWidth` outright with max-width 100% in the stylesheet —
 pcf-chart-view's Z4 rule — and measured 1,028 in every view after.
 Day view no longer tints its one column as today.
 
-0.3.0 was the form build; **0.3.1 is the first tag.**
+0.3.0 was the form build; 0.3.1 the second.
+
+**The re-check of 0.3.1 passed (2026-10-05) and found one more: no event title
+in Week or Day opened its record** — the link looked like a link and did
+nothing; Month and Timeline were fine. A press on the title bubbled to the
+block, which took pointer capture on `pointerdown`, and Chrome sends the
+click that ends a captured press to the capturing element — the block — so
+the title's `onClick` never ran. The timeline is immune because its *bar* is
+what opens. 0.3.2 takes capture only once the pointer has moved more than
+3px, so a press that stays put is a click on whatever was pressed; a press
+that leaves the block before that is abandoned.
+
+`dev/clicks.js` (`npm run clicks`) is the check this needed: real mouse
+input (CDP `Input.dispatchMouseEvent`) in the hub's own harness, eight
+checks — a title opens in Week, Day and the all-day row, a drag moves and
+does not open, the menu's item moves and opens nothing, a free slot opens
+the quick create. On the 0.3.1 build the three title checks failed; on 0.3.2
+all eight pass. The suite cannot reach this: it renders without a browser.
+**0.3.2 is the first tag.**
 
 ## 0.2.4 — a move keeps what Load more brought in
 

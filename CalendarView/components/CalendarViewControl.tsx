@@ -1395,6 +1395,8 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
     const scrollRef = React.useRef<HTMLDivElement>(null);
     const [drag, setDrag] = React.useState<HourDrag | null>(null);
     const dragged = React.useRef(false);
+    /** The element pressed — the block, an all-day bar or a resize handle — which takes capture once the pointer moves. */
+    const captor = React.useRef<HTMLElement | null>(null);
     const interactive = !props.disabled && props.canMove;
     const creatable = !props.disabled && props.canCreate;
     const rangeKey = `${dayKey(first)}|${dayKey(last)}`;
@@ -1473,13 +1475,18 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
             return;
         }
 
-        // Capture can refuse a pointer the browser is not tracking; the drag still works while the pointer stays on the block.
-        try {
-            pointer.currentTarget.setPointerCapture(pointer.pointerId);
-        } catch (error) {
-            // no capture
-        }
-
+        /*
+         * **No capture yet.** A press is a click until the pointer moves: the
+         * block holds the title — a link that opens the record — and Chrome
+         * sends the click that ends a captured press to the capturing
+         * element, so a block that captured on `pointerdown` took every
+         * click its title was given, and no title in Week or Day opened its
+         * record (the form, 2026-10-05; `npm run clicks` reproduces it with
+         * real mouse input). `during` captures once the pointer has moved
+         * more than 3px. The timeline captures on the press because its bar
+         * is the thing that opens.
+         */
+        captor.current = pointer.currentTarget;
         dragged.current = false;
         setDrag({ id: event.id, mode, originX: pointer.clientX, originY: pointer.clientY, dayWidth: width, column, start, end, hasEnd: event.end !== null, days: 0, minutes: 0 });
     };
@@ -1487,6 +1494,17 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
     const during = (pointer: React.PointerEvent<HTMLElement>): void => {
         if (!drag) {
             return;
+        }
+
+        const element = captor.current;
+
+        // Capture can refuse a pointer the browser is not tracking; the drag still works while the pointer stays on the block.
+        if (element && !element.hasPointerCapture(pointer.pointerId) && Math.hypot(pointer.clientX - drag.originX, pointer.clientY - drag.originY) > 3) {
+            try {
+                element.setPointerCapture(pointer.pointerId);
+            } catch (error) {
+                // no capture
+            }
         }
 
         let minutes = 0;
@@ -1520,11 +1538,13 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
             return;
         }
 
-        const captor = pointer.target as HTMLElement;
+        const element = captor.current;
 
-        if (typeof captor.hasPointerCapture === 'function' && captor.hasPointerCapture(pointer.pointerId)) {
-            captor.releasePointerCapture(pointer.pointerId);
+        if (element && typeof element.hasPointerCapture === 'function' && element.hasPointerCapture(pointer.pointerId)) {
+            element.releasePointerCapture(pointer.pointerId);
         }
+
+        captor.current = null;
 
         if (!cancelled && (drag.days !== 0 || drag.minutes !== 0)) {
             if (drag.mode === 'lane') {
@@ -1537,6 +1557,13 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
         }
 
         setDrag(null);
+    };
+
+    /** A press that left the block before it moved enough to capture: no drag, and nothing held. */
+    const abandon = (pointer: React.PointerEvent<HTMLElement>): void => {
+        if (drag && captor.current && !captor.current.hasPointerCapture(pointer.pointerId)) {
+            finish(pointer, true);
+        }
     };
 
     /** Open the record — unless the press was the end of a drag. */
@@ -1723,6 +1750,7 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
                                     onPointerMove={during}
                                     onPointerUp={(pointer): void => finish(pointer, false)}
                                     onPointerCancel={(pointer): void => finish(pointer, true)}
+                                    onPointerLeave={abandon}
                                 >
                                     {title(event, null)}
                                     {menu(event, 0, busy, false)}
@@ -1827,6 +1855,7 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
                                             onPointerMove={during}
                                             onPointerUp={(pointer): void => finish(pointer, false)}
                                             onPointerCancel={(pointer): void => finish(pointer, true)}
+                                            onPointerLeave={abandon}
                                         >
                                             {/*
                                                 A short block is the title alone: its place in the
