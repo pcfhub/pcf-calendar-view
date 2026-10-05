@@ -2,6 +2,38 @@
 
 A Dataverse view as a month, week or timeline calendar, by a date column.
 
+## 0.3.0 — an hour grid (probe 0.2.5 out, 4 October 2026)
+
+Picked by the eighteenth demand run: downloads 3 → 17 in two days (the
+largest move the hub has shown), and **No hour grid** is the first entry on
+`docs/limitations.md`. A search for an hour-grid calendar returned that entry
+beside three controls that have one (rwilson504's Scheduler, Chrona
+Scheduler, LTAPPs Calendar). The plan: a **Day** view, and Week drawn against
+the hours, behind a setting that is off by default so installed weeks do not
+change; an all-day row for whole-day and multi-day events; overlapping events
+side by side; drag to a time (snapped) and drag the bottom edge for the end;
+**+** on a slot opens the quick create with a start and an end.
+
+Everything 0.2.x measured was whole days. **Nothing of 0.3.0 is written until
+these are answered**, and an answer the wrong way removes what rests on it.
+The probe is `CalendarView/probe.ts` on `window.__pcfCalendarViewProbe`
+(`.version` is `0.2.5-probe` — check it before trusting an answer); the
+active calls print MATCH or MISMATCH against what the control expects.
+
+| | Question | Right way | If it goes the wrong way | Measured |
+| --- | --- | --- | --- | --- |
+| H1 | `timeViaRecord(id, "14:45", 45)`: `setValue` on start *and* end with a time and minutes, one `save()`, from a browser an hour from the user | Both MATCH: stored as 14:45 / 15:30 in the **user's** zone | Drag-to-time goes through the Web API only, and the record route stays whole-day ||
+| H2 | `timeViaApi(id, "09:15", 90)`: the same through `updateRecord`, spelled by `valueForApi` | Both MATCH | The Web API route refuses times; drag-to-time needs the record route ||
+| H3a | `createAt("2026-10-08", "14:30", 60, "user")`: the quick create with a start **and** an end, in the user's own date and time patterns | Start 2:30 PM, End 3:30 PM; saved row MATCH | **+** on a slot sets the start only, and the end is the user's to type ||
+| H3b | The same with `"h24"` and `"isoLocal"` | Recorded either way: which spellings parse, for a user whose time pattern is `HH:mm` | Whatever parses is what is sent; an unparsed one means a 24-hour user gets the day only ||
+| H4 | Passive: the time half of `dateFormattingInfo` on a dataset control | `shortTimePattern`, `amDesignator`, `pmDesignator`, `timeSeparator` present | The hour labels fall back to `h:mm tt` ||
+| H5 | Passive (and `workHours()`): `usersettings` through `webAPI` — `workdaystarttime`, `workdaystoptime` | One row, readable by an ordinary user | The grid opens on a fixed hour (a maker property), not the user's working day ||
+| H6 | Passive: the user's offset on eight dates across 2026 | Recorded: whether the user's zone has DST, so a transition day can be placed | — ||
+| H7 | Passive: `allocatedHeight` on the subgrid, at install and +5 s | Recorded: -1 means the control decides its own height and scrolls the hours inside | — ||
+
+After each write: `restore(id)` puts the record back as it was before the
+probe touched it.
+
 ## 0.2.4 — a move keeps what Load more brought in
 
 `pcf-kanban-board` found it on a form (2026-09-29, its 0.4.1): a dataset

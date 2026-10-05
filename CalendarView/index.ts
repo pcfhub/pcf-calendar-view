@@ -1,5 +1,7 @@
 import * as React from 'react';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
+// PROBE 0.2.5 — remove with CalendarView/probe.ts before the real build.
+import { installProbe } from './probe';
 import { CalendarViewControl, Edge, IProps, Metadata, Row, MoveOutcome } from './components/CalendarViewControl';
 import {
     Behavior,
@@ -251,6 +253,9 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
     private moveError: string | null = null;
 
+    // PROBE 0.2.5 — the context of the latest pass, so the probe never reads a dead dataset.
+    private latestContext: ComponentFramework.Context<IInputs> | null = null;
+
     public init(
         context: ComponentFramework.Context<IInputs>,
         notifyOutputChanged: () => void,
@@ -269,6 +274,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const dataset = context.parameters.records;
 
         this.applyPageSize(context, dataset);
+
+        // PROBE 0.2.5
+        this.latestContext = context;
+
+        if ((dataset.sortedRecordIds ?? []).length > 0) {
+            installProbe(() => this.latestContext ?? context, () => this.latestContext?.parameters.records ?? dataset);
+        }
 
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
