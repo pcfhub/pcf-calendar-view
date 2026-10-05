@@ -92,6 +92,36 @@ titles held in place; the day columns never shrink below a legible width.
 The **+ New** button in the toolbar creates on the day last selected — press
 a day's number in the header — or today.
 
+## The hour grid
+
+Turn on **Hour grid in Day and Week** and two things change: a **Day** view
+joins Month, Week and Timeline, and Day and Week are drawn against the hours
+of the day. Each event is a block from its start to its end in the user's
+own time zone; events that overlap share the column, side by side. Whole-day
+events, and timed ones that cross midnight, sit in the **All day** row above
+the hours, across the days they cover.
+
+- **Drag a block** to another time, another day, or both. It snaps to
+  **Time step** — 15, 30 (the default) or 60 minutes — and the duration
+  holds: both columns are written, as a move between days is.
+- **Drag its bottom edge** to change the end alone; only End is written. An
+  end is never dragged above its start plus one step. An event with no End
+  that is stretched is given one, measured from its start.
+- **Press a free slot** to open the quick create with Start set to that slot
+  and End one step later (see *Creating an event*).
+- **Each block's ⋯ menu** is the keyboard route: earlier or later by one
+  step or one day, and the end alone by one step.
+
+The grid scrolls inside a box of its own height — the user's working day
+plus an hour, eight to twelve hours of it — and opens at the start of that
+day, read from the user's **Personal Options**. A line marks the current
+time on today's column. With **Show times** off the blocks carry titles only.
+
+A time goes through the same two routes as a day: the record's `setValue` and
+`save`, with the user's wall clock as the value, or `webAPI.updateRecord` with
+the instant in the user's zone — both measured on a form from a browser an
+hour away from the user's Dataverse time zone.
+
 ## Creating an event
 
 Each day carries a **+** (on hover, or always on a touch screen) that opens
@@ -103,13 +133,20 @@ seeded from the parent, so it lands in the subgrid you created it from. The
 `createdRecordId` output carries the new row's id once the form saves, and the
 calendar refreshes to show it.
 
+In the hour grid a free slot does the same with a time: Start is the slot and
+End one **Time step** later, both sent as `yyyy-MM-ddTHH:mm:00`, which the
+quick create reads as the user's own wall clock whatever their date and time
+formats (measured). The **+** in a day's head creates at the start of the
+user's working day.
+
 The table needs a quick create form; without one the platform opens the main
 form instead. Turn **Allow create** off to hide the **+** entirely.
 
 ## Which rows are fetched
 
 The visible range — the whole weeks a month view shows, the seven days of a
-week, or the timeline's month from the 1st to the last — is sent to the
+week, the one day of a Day view, or the timeline's month from the 1st to the
+last — is sent to the
 dataset as a filter: *Start* on or before the last day,
 and either *End* on or after the first day or *End* empty. Stepping months
 re-filters and refreshes, so the view's own filter still applies and only the

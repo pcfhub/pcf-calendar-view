@@ -822,10 +822,22 @@ button.CalendarView-eventTitle:focus-visible {
     color: var(--colorNeutralForeground2, #424242);
 }
 
+/* The weekday never gives up its width: it shrank to one letter ("I 14") in the hub's 760px frame before. */
 .CalendarView .CalendarView-hours .CalendarView-hoursWeekday {
-    overflow: hidden;
+    flex: 0 0 auto;
     white-space: nowrap;
-    text-overflow: clip;
+}
+
+/*
+  The head's "+" floats at its end rather than taking a place in the row: it
+  is invisible until hovered or focused, and as a flex item its 24px squeezed
+  the weekday to a letter in a 92px column (the hub demo, 2026-10-05).
+*/
+.CalendarView .CalendarView-hours .CalendarView-hoursHead .CalendarView-dayAdd {
+    position: absolute;
+    inset-inline-end: 2px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .CalendarView .CalendarView-hours .CalendarView-hoursHead.is-today .CalendarView-dayNumber {

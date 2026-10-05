@@ -2,7 +2,7 @@
 
 A Dataverse view as a month, week or timeline calendar, by a date column.
 
-## 0.3.0 — an hour grid (probe 0.2.5 out, 4 October 2026)
+## 0.3.0 — an hour grid (probe 0.2.5, 4 October 2026)
 
 Picked by the eighteenth demand run: downloads 3 → 17 in two days (the
 largest move the hub has shown), and **No hour grid** is the first entry on
@@ -39,6 +39,53 @@ first records showed (P1): *Birthday* ends at `04:30Z` and starts at
 `05:00Z` — an end before its start, saved by hand on the form. The month
 view never minded; an hour grid would draw it with a negative height, so an
 end before the start is drawn as the start alone.
+
+### Built, 4–5 October 2026
+
+`hourGrid` (TwoOptions, off) and `slotMinutes` (Enum 15/30/60, default 30);
+`day` added to `defaultView` (a `day` without the grid opens its week). The
+pure half is in `calendar.ts` — `layoutDay` (lanes for overlaps, drawn spans
+at least 30 minutes), `allDayRow`, `shiftMinutes` (UTC arithmetic, no DST),
+`formParameterTime`, `workHoursOf`; the component's `HourGrid` draws them.
+
+Two older rules became minute-precise because the grid moves within a day:
+`reconcile` retires a timed override only when the record agrees **to the
+minute** (by day it retired on the stale pass after `save()` and the event
+jumped back), and `eventsKey` keys the overlay by minute (by day it stayed
+after the data caught up and drew the move twice — seen in the preview, a
+static render cannot). The offset cache moved from the UTC day to the UTC
+hour (H6). A move of an event with no end no longer writes an end equal to
+its new start; only a resize gives one.
+
+The pictures found what the 157 assertions could not, and each became a
+rule: a short block lost its title to the time ("9:00 AM D…") — blocks have
+three sizes now; a tall block clipped its range; a 44px narrow axis clipped
+"10:00 AM"; the dark preview drew white lines (the dev stub lacked
+`colorNeutralStroke3` — fixed in `_template`); and in the hub's 760px frame
+the day head's invisible **+** squeezed the weekday to one letter — it floats
+now. `npm run demo-check`: six presets clean in the hub's real harness; a
+free slot opens the stand-in quick create with Starts and Ends set
+(`2026-09-15T14:00` / `14:30`); `usersettings` is refused there, so the demo
+opens at 8:00. Seven mutants of the new decisions, all killed.
+
+### The walkthrough — 0.3.0 on the form
+
+On the `cll_event` subgrid of account's Information form, with **Hour grid in
+Day and Week** turned on in the subgrid's control properties. The three
+*create* events from the probe sit at 2:30–3:30 PM on 8 October, on top of
+one another — the overlap case, already in the data.
+
+| | Look at | Right way | Measured |
+| --- | --- | --- | --- |
+| W1 | Week, the week of 5 October | Opens at 7:30, hours down the side; events at their times; *Check bug* (17 → 26 Sep) is not here, but a week it covers shows it in **All day** | |
+| W2 | The three *create* events on 8 Oct | Three lanes side by side, each a third of the column | |
+| W3 | Drag one an hour later; then reload the form | Lands at 3:30–4:30 and stays there after the reload — one save, both columns | |
+| W4 | Drag another's bottom edge down 30 minutes | End 4:00 PM; Start untouched | |
+| W5 | Press a free slot, Tuesday about 10:15 AM | Quick create: Starts 10:00 AM, Ends 10:30 AM; Save — the event appears there | |
+| W6 | **Day**, then ‹ › and **Today** | One day at full width; steps a day at a time; the heading names the day | |
+| W7 | An event's **⋯**: *30 minutes later*, then *End 30 minutes earlier* | Each writes; the second only End | |
+| W8 | The *Kind ≠ Meeting* subgrid, grid off | Its week is the list it was in 0.2.4 | |
+| W9 | A narrow section, or the phone | The days scroll sideways inside the box; the hour labels are whole | |
 
 ## 0.2.4 — a move keeps what Load more brought in
 
@@ -272,6 +319,18 @@ It was checked with 0.2.3's published bundle against that harness:
   the API route writes them as UTC; neither has been on a form.
 - **`weekStart: auto` on a tenant whose `firstDayOfWeek` is not Sunday.** The
   rig models it; this tenant answers `0`.
+- **The hour grid on the day the clocks change.** The offset is read per UTC
+  hour and the rig's fall-back case passes, but no form has shown an event at
+  1:30 AM on 1 November, nor a drag into the spring change's missing hour.
+  The test user's zone changes on 1 November 2026 — the first chance.
+- **`usersettings` for an ordinary user.** H5 was read as System
+  Administrator. A user who cannot read their own row gets 08:00–17:00.
+- **A finger on an hour-grid block, on the phone client.** `touch-action:
+  none` on the block, as on the timeline's bars, untried there too.
+- **The hour grid in a canvas app**, where the host gives a height — the
+  grid takes it, from `allocatedHeight`, unseen.
+- **24-hour labels on a real tenant.** The rig draws `13:00` for `HH:mm`;
+  this tenant is `h:mm tt`.
 
 ## Promoting a finding
 
@@ -285,11 +344,11 @@ nothing to drop on* there (0.40.1 marks it measured).
 
 ## Screenshots
 
-Headless Chrome against `dev/preview.html` on the harness server, at
-`--force-device-scale-factor=2`, `--virtual-time-budget=4000`,
-`--hide-scrollbars`, with `?fixture=demo&date=2026-09-14&zone=-300&width=760`
-and `&view=month|week|timeline`; window `792×540`, `792×300` and `792×560`.
-The narrow check is the same page at `width=373` in a `405×420` window. The
-timeline shot adds `&select=2026-09-09`, which presses that day after mount
-so the selection ring and column are in the picture. New
-file names on every retake — the hub's mirror never re-fetches a path.
+`npm run shots` (`dev/shots.js`, on the template's `dev/cdp.js`) retakes every
+picture in `media/` from `dev/preview.html` with the harness serving on 8094:
+the demo fixture, the week of 14 September 2026 at UTC−5, 760px, device scale
+2 — month, week list, timeline with a day pressed, and from 0.3.0 the hour
+grid's week, day and a 373px column. `npm run shots -- hours` takes the
+hour grid's alone. New file names whenever a picture changes — the hub's
+mirror never re-fetches a path, and the run says when a published name
+changed.

@@ -21,6 +21,11 @@ Whether a canvas app ever does is unverified; if the drag handles and the
 **⋯** menu are absent, it did not.
 :::
 
+The **hour grid** works in a canvas app with the same limits: events are
+placed by the shape of each value, there is no working day to read (it opens
+at 8:00 AM), and no slot opens a form. It takes the height the app gives the
+control, so size the control on the screen to the hours you want to see.
+
 Use the calendar in a canvas app to *show* a small, bounded set of dated
 records — a team's appointments this quarter, a booking sheet. Bind it to a
 filtered data source so the set is small: the control cannot narrow it

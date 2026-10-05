@@ -6,13 +6,17 @@ order: 1
 
 # Calendar View
 
-A Dataverse view as a month, a week or a timeline, by a date column. Drag an
-event to another day to reschedule it; on the timeline, drag an end of its bar
-to change how long it runs; press **+** to create one.
+A Dataverse view as a month, a week, a day or a timeline, by a date column.
+Drag an event to another day to reschedule it; turn on the **hour grid** and
+Day and Week are drawn against the hours, where an event drags to another
+time and its bottom edge changes how long it runs; on the timeline, drag an
+end of a bar; press **+**, or a free slot, to create one.
 
 :::callout{type=warning}
 **Reference example · built with AI.** This control was written with AI (Claude) and tested on a live Dataverse form; its code has not been reviewed line by line. It is published as a worked example and is not maintained — read the source and [SPEC.md](https://github.com/pcfhub/pcf-calendar-view/blob/main/SPEC.md) (what was measured on the form) before you use it. Fixes are not guaranteed.
 :::
+
+::image{src=media/screenshot-hours-week.png alt="A week against the hours, opened on the working day: a dentist's appointment, a two-hour review with its range, an interview" zoom}
 
 ::image{src=media/screenshot-month-v2.png alt="A month of appointments, one dragged to a new day" zoom}
 
@@ -42,6 +46,12 @@ Three things it does that a subgrid does not:
   and the end column shifted by the same days, through the record where the
   platform allows it and through the Web API otherwise. The event moves
   before the round trip finishes and returns if the write is refused.
+- **Draws the hours** (from 0.3.0, with **Hour grid in Day and Week** on).
+  Day and Week are drawn to scale against the hours, overlapping events side
+  by side, whole-day ones in a row above. Drag an event to another time or
+  day, drag its bottom edge to change its end, press a free slot to create
+  one there with its start and end already set. It opens on the user's own
+  working day.
 - **Shows the length of things.** The timeline is one row per event with
   the days of the month across and a bar from start to end — the view for a
   month of projects, bookings or campaigns, where *how long* matters as much
@@ -62,8 +72,7 @@ are model-driven only, there is no metadata to read, and no form to open — see
 
 ## What it is not
 
-Not a scheduler. There is no hour grid, no resource lane and no overlap
-resolution: a week is seven columns of events in time order, a month is whole
-days, and the timeline's bars are whole days too. If you need appointments
-drawn to scale against the hours of a day, this is not that control. Nor is
+Not a scheduler. The hour grid draws a team's appointments against the clock,
+but there are no resource lanes, no availability and no conflict checking:
+two events at once are drawn side by side, and nothing stops a third. Nor is
 it a Gantt chart: the timeline draws no dependencies and no critical path.

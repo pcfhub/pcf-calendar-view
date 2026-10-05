@@ -3,8 +3,8 @@
 
   "slug": "pcf-calendar-view",
   "name": "Calendar View",
-  "tagline": "A Dataverse view as a month, week or timeline calendar, by a date column — drag to reschedule, drag a bar's edge to resize, click a day to create.",
-  "summary": "Shows a Dataverse view as a month, a week or a timeline, placed by a date column. Drag an event to another day to reschedule it, drag an end of its bar on the timeline to change how long it runs, and press **+** on a day to create one.\n\n- Fetches only the range on screen, so a view of ten thousand appointments loads the thirty it needs\n- Places each event on the day its user means, from the column's behaviour and the user's time zone\n- Writes a move back to the start and end columns, with a keyboard route from each event's menu",
+  "tagline": "A Dataverse view as a month, week, day or timeline calendar — drag to another day or time, drag an edge to resize, press a day or a free slot to create.",
+  "summary": "Shows a Dataverse view as a month, a week, a day or a timeline, placed by a date column. Drag an event to another day to reschedule it, drag an end of its bar on the timeline to change how long it runs, and press **+** on a day to create one.\n\n- An hour grid for Day and Week: events drawn to scale and side by side where they overlap, dragged to another time, resized by their bottom edge, created from a free slot — opened on the user's own working day\n- Fetches only the range on screen, so a view of ten thousand appointments loads the thirty it needs\n- Places each event on the day its user means, from the column's behaviour and the user's time zone\n- Writes a move back to the start and end columns, with a keyboard route from each event's menu",
   "category": "data",
   "hosts": ["canvas", "model-driven"],
   "tags": ["react", "calendar", "timeline", "gantt", "date", "schedule", "drag-and-drop", "write-back", "accessible"],
@@ -31,7 +31,7 @@
 
   "media": {
     "logo": "media/logo.png",
-    "screenshots": ["media/screenshot-month-v2.png", "media/screenshot-timeline-selected.png", "media/screenshot-week-v2.png"]
+    "screenshots": ["media/screenshot-hours-week.png", "media/screenshot-month-v2.png", "media/screenshot-timeline-selected.png", "media/screenshot-hours-day.png", "media/screenshot-week-v2.png"]
   },
 
   "demo": {
@@ -47,6 +47,7 @@
       "Stepping to another month fetches it, as on a form: the control sends the visible range as a filter \u2014 start \u2264 last day AND (end \u2265 first day OR end is empty) \u2014 and refreshes, and the demo applies that filter to the fixture. Every fixture event falls in September, so the months either side show only the September days at the edges of their grids.",
       "Moving an event — by dragging it, or from its ⋯ menu — writes to the demo’s stand-in Dataverse through the record’s setValue and save, as on a form, so the event keeps its new day through the next render and a change in the property panel; Reset puts the calendar back. The movedRecordId and selectedDate outputs update. Nothing leaves the browser.",
       "Resizing a bar on the timeline writes the same way. Dragging an edge, or Start or End a day earlier or later from the ⋯ menu, writes only the column that moved, and the bar keeps its new length.",
+      "Week, hours and Day draw the hour grid (Hour grid in Day and Week on). Drag a block to another time or day, drag its bottom edge to change its end — in steps of the Time step property, 30 minutes in the presets — and the stand-in Dataverse takes the write as a form would. Press a free slot and the stand-in quick create opens with Starts and Ends set to it. On a form the grid opens on the user's own working day, read from their usersettings row; the demo has no such row (its Web API refuses the read), so it opens at 8:00 AM and shades outside 8:00 AM–5:00 PM.",
       "Each day carries a + while the demo is a model-driven app, which is how it opens. Switch the toolbar’s host to Canvas app and the + goes, and the timeline’s New with it: a canvas app reports no organisation URL, so the calendar offers no quick create there. The + asks navigation.openForm for the table’s quick create form with the day passed as a form parameter, and the demo answers with a stand-in form: the subject, Starts already set to that day, Ends and Kind. Save and close creates the event in the demo’s stand-in Dataverse and the calendar refreshes to show it, with createdRecordId set; Cancel adds nothing. A real quick create form is whatever its maker laid out; the stand-in shows the view’s columns.",
       "Load more appears when the visible range holds more events than the page size, and adds the next page. The presets ask for 50, more than the 13 September events, so a month shows whole; set Events per fetch to 5 to see September arrive in three pages.",
       "Clicking an event calls dataset.openDatasetItem(). There is no form behind the demo to open, so the event log under the demo names the event that would have opened instead. The openedRecordId output still updates."
@@ -64,7 +65,9 @@
           "allowCreate": true,
           "openOnEventClick": true,
           "showTimes": true,
-          "pageSize": 50
+          "pageSize": 50,
+          "hourGrid": false,
+          "slotMinutes": "30"
         },
         "state": {
           "timeZone": "America/New_York"
@@ -83,7 +86,9 @@
           "allowCreate": true,
           "openOnEventClick": true,
           "showTimes": true,
-          "pageSize": 50
+          "pageSize": 50,
+          "hourGrid": false,
+          "slotMinutes": "30"
         },
         "state": {
           "timeZone": "America/New_York"
@@ -101,7 +106,49 @@
           "allowCreate": true,
           "openOnEventClick": true,
           "showTimes": true,
-          "pageSize": 50
+          "pageSize": 50,
+          "hourGrid": false,
+          "slotMinutes": "30"
+        },
+        "state": {
+          "timeZone": "America/New_York"
+        }
+      },
+      {
+        "slug": "week-hours",
+        "name": "Week, hours",
+        "description": "The week of 14 September against the hours, opened on the working day: drag an event to another time or day, drag its bottom edge to change its length, or press a free slot to create one there.",
+        "props": {
+          "defaultView": "week",
+          "weekStart": "monday",
+          "initialDate": "2026-09-14",
+          "allowMove": true,
+          "allowCreate": true,
+          "openOnEventClick": true,
+          "showTimes": true,
+          "pageSize": 50,
+          "hourGrid": true,
+          "slotMinutes": "30"
+        },
+        "state": {
+          "timeZone": "America/New_York"
+        }
+      },
+      {
+        "slug": "day",
+        "name": "Day",
+        "description": "Monday 14 September against its hours: Sprint planning and an interview in the morning, the board dinner in the evening.",
+        "props": {
+          "defaultView": "day",
+          "weekStart": "monday",
+          "initialDate": "2026-09-14",
+          "allowMove": true,
+          "allowCreate": true,
+          "openOnEventClick": true,
+          "showTimes": true,
+          "pageSize": 50,
+          "hourGrid": true,
+          "slotMinutes": "30"
         },
         "state": {
           "timeZone": "America/New_York"
@@ -119,7 +166,9 @@
           "allowCreate": false,
           "openOnEventClick": false,
           "showTimes": false,
-          "pageSize": 50
+          "pageSize": 50,
+          "hourGrid": false,
+          "slotMinutes": "30"
         },
         "state": {
           "timeZone": "America/New_York"

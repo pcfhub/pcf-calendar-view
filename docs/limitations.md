@@ -6,14 +6,55 @@ order: 7
 
 # Limitations
 
-## No hour grid
+## The hour grid is off until you turn it on
 
-A week is seven columns of events in time order, a month is whole days, and
-the timeline's bars are whole days. Events are not drawn to scale against the
-hours of the day, do not overlap visually, and cannot be dragged to a
-different *time* — only to a different day, with their time of day kept; a
-bar's edge moves its end by whole days too. Use the **⋯** menu or drag for
-the day; open the record for the time.
+**Hour grid in Day and Week** (from 0.3.0) draws those two views against the
+hours of the day. It is off by default, so a calendar installed before 0.3.0
+keeps the week it had: seven columns of events in time order, where a drag
+changes the day and keeps the time. The month is always whole days, and the
+timeline's bars always move by whole days.
+
+## What the hour grid does not draw
+
+- **An event that crosses midnight is not a tall block over two days.** It
+  sits in the *All day* row above the hours, across the days it covers, with
+  whole-day events — a night shift reads as a bar, not as two half-blocks.
+  An event ending at exactly midnight still ends its own day.
+- **Twenty-four equal hours, even on the day the clocks change.** On the
+  autumn change the repeated hour's events share that hour's space; on the
+  spring change the skipped hour is still drawn, and a time dragged into it
+  is one that does not exist in the user's zone — where it lands is the
+  platform's to decide (not yet seen on a form).
+- **Steps of 15, 30 or 60 minutes.** A drag snaps to **Time step**, an event
+  created from a free slot is one step long, and the menu moves by one step.
+  A time between steps is kept until the event is moved, then snapped.
+- **A short event shows its title, not its time.** Under about 45 minutes a
+  block has room for one line, and the title takes it; the time is in its
+  tooltip, and its place in the column says when. A Day view's wider column
+  shows both.
+
+## The hour grid has a height of its own
+
+A form subgrid gives a control no height (measured — the platform answers
+`-1`), so the grid is a box of its own: the user's working day plus an hour,
+eight to twelve hours of it, scrolling to the rest of the day inside. Where
+the host does give a height — a canvas app, full screen — the grid takes it.
+
+It opens on the user's working day, read from their own **Personal Options**
+(`usersettings`); where that cannot be read — a canvas app, a user without
+read access to their own settings row, the hub's demo — it opens on 8:00 AM
+and shades outside 8:00 AM–5:00 PM. Reading it as anyone but a System
+Administrator has not been tried on a form yet.
+
+## The hour grid's pointer and keyboard routes differ
+
+Dragging a block, dragging its bottom edge and pressing a free slot are
+pointer gestures. The keyboard reaches the same changes another way: each
+block's **⋯** menu moves it by one step or one day and its end by one step,
+and the **+** in each day's head creates an event at the start of the
+working day. There is no keyboard route to a particular empty slot. On a
+touch screen a finger on a block drags it rather than scrolling the day;
+scroll from the empty part of the grid.
 
 ## The timeline's edges are pointer-only
 
@@ -104,5 +145,8 @@ brand edge.
 
 ## Not a scheduler
 
-There are no resource lanes, no availability, no recurrence and no conflict
-detection. For a scheduling board, this is not the control.
+The hour grid draws a calendar's events against the clock; it does not
+schedule. There are no resource lanes, no availability, no recurrence, and
+no conflict detection — overlapping events are drawn side by side, and
+nothing stops one being moved onto another. For a scheduling board, this is
+not the control.

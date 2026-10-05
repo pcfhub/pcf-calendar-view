@@ -27,6 +27,31 @@ moves both columns by the same number of days; the **+** opens the quick
 create form with `scheduledstart` set to the day pressed, seeded from the
 account.
 
+## A week of meetings, against the hours
+
+The same appointments as a working week drawn to scale — the shape for a
+team that books by the half hour.
+
+| Property | Value |
+| --- | --- |
+| Start | `scheduledstart` |
+| End | `scheduledend` |
+| Title | `subject` |
+| Colour | `prioritycode` |
+| Default view | Week |
+| Week starts on | Monday |
+| Hour grid in Day and Week | On |
+| Time step | 30 minutes |
+| Allow move | On |
+| Allow create | On |
+
+The week opens at the start of each user's own working day. Dragging a
+meeting from 9:00 to 10:30 writes both columns, so it keeps its hour;
+dragging its bottom edge writes `scheduledend` alone. Pressing the free half
+hour at 2:00 PM on Tuesday opens the quick create with Starts 2:00 PM and
+Ends 2:30 PM. A two-day offsite sits in the *All day* row. The user can step
+down to **Day** for one day at full width.
+
 ## Due dates, as whole days
 
 A view of tasks with a single *Date Only* column, on a dashboard.

@@ -1,6 +1,6 @@
 # Calendar View
 
-A Dataverse view as a month, week or timeline calendar, by a date column.
+A Dataverse view as a month, week, day or timeline calendar, by a date column — with an hour grid for Day and Week.
 
 > **Reference example · built with AI.** This control was written with AI (Claude) and tested on a live Dataverse form; its code has not been reviewed line by line. It is published as a worked example and is not maintained — read the source and [`SPEC.md`](SPEC.md) (what was measured on the form) before you use it. Fixes are not guaranteed.
 
@@ -35,10 +35,13 @@ recompiles it.
 ## What it does
 
 Binds a Dataverse view and lays its records out as a month, a week or a
-timeline — one row per event, a bar from start to end — by a date column.
-Dragging an event to another day writes the new date back to the record;
-dragging an end of a bar on the timeline writes that one column; pressing **+**
-opens the quick create form with the day filled in. The subgrid this replaces
+timeline — one row per event, a bar from start to end — by a date column, and
+from 0.3.0, with **Hour grid in Day and Week** on, as a day or a week drawn
+against the hours. Dragging an event to another day writes the new date back
+to the record; in the hour grid a drag moves it to another time and its bottom
+edge changes its end; dragging an end of a bar on the timeline writes that one
+column; pressing **+**, or a free slot in the hour grid, opens the quick
+create form with the day — or the start and end — filled in. The subgrid this replaces
 can show the same rows, but it cannot show *which days* they fall on, and a
 list of dates is the one shape a grid does not have.
 
@@ -102,7 +105,9 @@ are required; every column bound to a role must be in the view.
 
 | Property | Type | Usage | Default | What it controls |
 | --- | --- | --- | --- | --- |
-| `defaultView` | Enum `month` | `week` | `timeline` | input | `month` | The view the calendar opens in. |
+| `defaultView` | Enum `month` | `week` | `day` | `timeline` | input | `month` | The view the calendar opens in; `day` needs the hour grid, and opens its week without it. |
+| `hourGrid` | TwoOptions | input | off | Day and Week drawn against the hours, with a Day view. Off keeps an installed week as it was. |
+| `slotMinutes` | Enum `15` | `30` | `60` | input | `30` | The hour grid's step: what a drag snaps to, how long a slot's event is, how far the menu moves. |
 | `weekStart` | Enum `auto` | `sunday` | `monday` | input | `auto` | The first day of the week; `auto` follows the user's personal options. |
 | `initialDate` | SingleLine.Text | input | *(empty — today)* | A `yyyy-MM-dd` to open on. |
 | `allowMove` | TwoOptions | input | on | Whether events can be dragged or moved from their menu — and, on the timeline, resized by their edges. |

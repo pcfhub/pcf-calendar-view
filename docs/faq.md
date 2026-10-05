@@ -59,13 +59,29 @@ it everywhere.
 
 ## Can I move an event to a different time?
 
-Not by dragging: a drag changes the day and keeps the time. Open the record
-for the time. An hour grid is the shape this control does not have — see
-[Limitations](limitations.md).
+Yes, from 0.3.0: turn on **Hour grid in Day and Week**, and in those two
+views a drag moves an event to another time as well as another day, in steps
+of **Time step**. Without it — and always in the month — a drag changes the
+day and keeps the time.
+
+## Why does the hour grid open at 8:00 AM?
+
+It opens at the start of the user's working day, from their own **Personal
+Options**. Where that cannot be read — a canvas app, a user who cannot read
+their own settings — it opens at 8:00 AM and shades outside 8:00 AM–5:00 PM.
+Scroll for the rest of the day; it is all there.
+
+## Why is an event in the All day row when it has times?
+
+It crosses midnight. The hour grid draws one day per column, so an event
+from 10:00 PM to 2:00 AM would be two half-blocks; it is drawn as one bar
+across its days instead, in the row above the hours. An event ending at
+exactly midnight stays in its own day.
 
 ## Can I change how long an event runs?
 
-On the timeline, yes: drag the right edge of its bar to move the end, the
+In the hour grid, drag its bottom edge, in steps of **Time step**. On the
+timeline, drag the right edge of its bar to move the end, the
 left edge to move the start, by whole days. Only the column that moved is
 written. The same changes are in the row's **⋯** menu, a day at a time. With
 no End column bound there is nothing to resize and the handles are not shown.

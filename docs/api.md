@@ -16,6 +16,12 @@ adopts the page size the host is already retrieving with and never calls
 the user's personal options unless you fix it. **Opens on** is empty for
 today; set a `yyyy-MM-dd` for a calendar of a known period.
 
+**Hour grid in Day and Week** is off by default, so an upgrade leaves an
+installed week as it was; on, it adds the **Day** view and draws Day and
+Week against the hours. A **Default view** of `day` opens the week it falls
+in while the grid is off. **Time step** is the grid's snap, the length of an
+event created from a free slot, and the menu's step.
+
 ## Dataset
 
 ::props-table{kind=dataset}
