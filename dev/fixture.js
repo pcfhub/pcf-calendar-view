@@ -154,5 +154,18 @@
             // August: outside the window the other way.
             { id: 'e12', values: { subject: 'Summer party', scheduledstart: '2026-08-21T20:00:00Z', scheduledend: '2026-08-21T23:00:00Z', prioritycode: 0, cll_dueon: '2026-08-21T00:00:00.000Z' } },
         ],
+
+        /*
+         * The other tables a control reads through `webAPI.retrieveMultipleRecords`.
+         * `usersettings` is the user's own row, as the form answered it
+         * (SPEC.md H5, 2026-10-04): the working day as `"HH:mm"` strings. A
+         * 09:00–18:00 day rather than the form's 08:00–17:00, so a control that
+         * ignored the row and drew its own default would be caught.
+         */
+        tables: {
+            usersettings: [
+                { systemuserid: '00000000-0000-0000-0000-0000000000aa', workdaystarttime: '09:00', workdaystoptime: '18:00', timeformatstring: 'h:mm tt', timezonecode: 20 },
+            ],
+        },
     };
 });

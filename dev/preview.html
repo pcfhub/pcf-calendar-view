@@ -131,13 +131,15 @@
             tokenTheme: dark ? window.__harnessFluent.webDarkTheme : undefined,
             userTimeZoneOffset: number('zone'),
             inputs: {
-                defaultView: params.get('view') === 'week' || params.get('view') === 'timeline' ? params.get('view') : 'month',
+                defaultView: ['week', 'day', 'timeline'].indexOf(params.get('view')) !== -1 ? params.get('view') : 'month',
                 weekStart: 'auto',
                 initialDate: params.get('date'),
                 allowMove: params.get('move') !== '0',
                 allowCreate: params.get('create') !== '0',
                 openOnEventClick: true,
                 showTimes: true,
+                hourGrid: params.get('hours') === '1',
+                slotMinutes: params.get('step') || '30',
             },
         });
 

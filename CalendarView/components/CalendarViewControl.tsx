@@ -17,6 +17,7 @@ import {
     Format,
     View,
     Wall,
+    allDayRow,
     clampResize,
     compareDay,
     compareWall,
@@ -29,11 +30,15 @@ import {
     firstDayOfWeek,
     formatTime,
     isUtcMidnight,
+    layoutDay,
+    minuteOfDay,
     monthGrid,
     monthName,
     optionValue,
     sameDay,
     shiftDays,
+    shiftMinutes,
+    snapMinutes,
     stepAnchor,
     timelineBar,
     timelineDays,
@@ -92,6 +97,14 @@ export interface IProps {
     openOnEventClick: boolean;
     showTimes: boolean;
     defaultView: View;
+    /** Day and Week drawn against the hours (0.3.0). Off unless the maker turned it on. */
+    hourGrid: boolean;
+    /** The hour grid's step in minutes — what a drag snaps to and what a slot creates: 15, 30 or 60. */
+    slotMinutes: number;
+    /** The host's height where it gives one (canvas, full screen); `null` on a form, which never does (SPEC.md H7). */
+    allocatedHeight: number | null;
+    /** Reads the user's working day for the hour grid, or `null` where there is nobody to ask. */
+    loadWorkHours: (() => Promise<{ start: number; end: number }>) | null;
     weekStart: string | null | undefined;
     moving: string[];
     moveError: string | null;
@@ -122,8 +135,12 @@ export interface IProps {
     onMove: (recordId: string, days: number) => Promise<MoveOutcome>;
     /** Move one end of it by days, the other held — the timeline's resize. Only offered with an end role bound. */
     onResize: (recordId: string, edge: Edge, days: number) => Promise<MoveOutcome>;
+    /** Move one or both ends by minutes — the hour grid's drag and menu. Resolves with how it ended, never rejects. */
+    onShiftTime: (recordId: string, startMinutes: number, endMinutes: number) => Promise<MoveOutcome>;
     onSelectDay: (day: Wall) => void;
     onCreate: (day: Wall) => void;
+    /** Open the quick create at a time with an end — the hour grid's slot and its day **+**. */
+    onCreateAt: (start: Wall, end: Wall) => void;
     onOpenRecord: (id: string) => void;
     onLoadMore: () => void;
 }
@@ -191,7 +208,13 @@ function useMetadata(key: string, load: (() => Promise<Metadata>) | null): Metad
     return loaded;
 }
 
-/** How far each end of an event has been shifted, in days. A move shifts both by the same amount; a resize shifts one. */
+/** A day in minutes. Every shift is in minutes since 0.3.0; a whole-day move is 1,440 of them. */
+const DAY = 1440;
+
+/** The hour grid's height for one hour, in pixels. */
+const HOUR_PX = 48;
+
+/** How far each end of an event has been shifted, in minutes. A move shifts both by the same amount; a resize shifts one. */
 interface Shift {
     start: number;
     end: number;
@@ -208,7 +231,7 @@ interface Shift {
  */
 function useOptimisticMoves(
     events: CalendarEvent[],
-): [Record<string, Shift>, (id: string, startDays: number, endDays: number) => void] {
+): [Record<string, Shift>, (id: string, startMinutes: number, endMinutes: number) => void] {
     const [overlay, setOverlay] = React.useState<Record<string, Shift>>({});
     const key = eventsKey(events);
 
@@ -217,11 +240,11 @@ function useOptimisticMoves(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key]);
 
-    const place = React.useCallback((id: string, startDays: number, endDays: number): void => {
+    const place = React.useCallback((id: string, startMinutes: number, endMinutes: number): void => {
         setOverlay((current) => {
             const before = current[id] ?? { start: 0, end: 0 };
 
-            return { ...current, [id]: { start: before.start + startDays, end: before.end + endDays } };
+            return { ...current, [id]: { start: before.start + startMinutes, end: before.end + endMinutes } };
         });
     }, []);
 
@@ -234,14 +257,44 @@ function useOptimisticMoves(
  * right edge of a one-day bar means.
  */
 function shifted(event: CalendarEvent, shift: Shift): CalendarEvent {
-    const start = shiftDays(event.start, shift.start);
+    const by = (wall: Wall, minutes: number): Wall => (minutes % DAY === 0 ? shiftDays(wall, minutes / DAY) : shiftMinutes(wall, minutes));
+    const start = by(event.start, shift.start);
     const end = event.end
-        ? shiftDays(event.end, shift.end)
+        ? by(event.end, shift.end)
         : shift.end !== shift.start
-            ? shiftDays(event.start, shift.end)
+            ? by(event.start, shift.end)
             : null;
 
     return { ...event, start, end };
+}
+
+/**
+ * The user's working day, once it arrives — held in React for the reason
+ * `useMetadata` gives. 08:00–17:00 until then, and where nobody can say.
+ */
+function useWorkHours(enabled: boolean, load: (() => Promise<{ start: number; end: number }>) | null): { start: number; end: number } {
+    const [hours, setHours] = React.useState({ start: 8 * 60, end: 17 * 60 });
+
+    React.useEffect(() => {
+        if (!enabled || !load) {
+            return undefined;
+        }
+
+        let alive = true;
+
+        void load().then((answer) => {
+            if (alive) {
+                setHours(answer);
+            }
+        });
+
+        return () => {
+            alive = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [enabled]);
+
+    return hours;
 }
 
 /** The rows as events, against whatever metadata is known. A row whose start cannot be read is not an event. */
@@ -386,8 +439,8 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
     const [busy, setBusy] = React.useState<string[]>([]);
     const [refusal, setRefusal] = React.useState<string | null>(null);
 
-    const settle = (id: string, startDays: number, endDays: number, sent: Promise<MoveOutcome>): void => {
-        place(id, startDays, endDays);
+    const settle = (id: string, startMinutes: number, endMinutes: number, sent: Promise<MoveOutcome>): void => {
+        place(id, startMinutes, endMinutes);
         setRefusal(null);
         setBusy((current) => [...current, id]);
 
@@ -396,7 +449,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
 
             if (!outcome.ok) {
                 // The overlay adds shifts, so the opposite one puts it back.
-                place(id, -startDays, -endDays);
+                place(id, -startMinutes, -endMinutes);
                 setRefusal(outcome.message);
             }
         });
@@ -407,7 +460,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
             return;
         }
 
-        settle(id, days, days, props.onMove(id, days));
+        settle(id, days * DAY, days * DAY, props.onMove(id, days));
     };
 
     const resize = (id: string, edge: Edge, days: number): void => {
@@ -415,8 +468,19 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
             return;
         }
 
-        settle(id, edge === 'start' ? days : 0, edge === 'end' ? days : 0, props.onResize(id, edge, days));
+        settle(id, edge === 'start' ? days * DAY : 0, edge === 'end' ? days * DAY : 0, props.onResize(id, edge, days));
     };
+
+    /** The hour grid's move or resize, in minutes; a refused one comes back the same way a day move does. */
+    const shiftTime = (id: string, startMinutes: number, endMinutes: number): void => {
+        if (startMinutes === 0 && endMinutes === 0) {
+            return;
+        }
+
+        settle(id, startMinutes, endMinutes, props.onShiftTime(id, startMinutes, endMinutes));
+    };
+
+    const workHours = useWorkHours(props.hourGrid, props.loadWorkHours);
 
     /*
      * The day the user last chose, kept here as well as reported, because the
@@ -471,9 +535,12 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
     }
 
     const heading =
-        view === 'week'
-            ? `${range.first.day} ${monthName(props.names, range.first.month)} – ${range.last.day} ${monthName(props.names, range.last.month)} ${range.last.year}`
-            : `${monthName(props.names, anchor.month)} ${anchor.year}`;
+        view === 'day'
+            ? `${dayName(props.names, weekday(anchor), false)} ${anchor.day} ${monthName(props.names, anchor.month)} ${anchor.year}`
+            : view === 'week'
+                ? `${range.first.day} ${monthName(props.names, range.first.month)} – ${range.last.day} ${monthName(props.names, range.last.month)} ${range.last.year}`
+                : `${monthName(props.names, anchor.month)} ${anchor.year}`;
+    const hours = props.hourGrid && (view === 'week' || view === 'day');
 
     const days = view === 'month' ? monthGrid(anchor.year, anchor.month, firstDay) : [weekDays(anchor, firstDay)];
 
@@ -516,6 +583,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
                 <div className="CalendarView-views" role="group" aria-label={getString('CalendarView_ViewLabel')}>
                     {viewButton('month', getString('View_Month'))}
                     {viewButton('week', getString('View_Week'))}
+                    {props.hourGrid && viewButton('day', getString('View_Day'))}
                     {viewButton('timeline', getString('View_Timeline'))}
                 </div>
 
@@ -541,7 +609,21 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
 
             {props.loading && placed.length === 0 && <p className="CalendarView-message">{getString('CalendarView_Loading')}</p>}
 
-            {view === 'timeline' ? (
+            {hours ? (
+                <HourGrid
+                    {...props}
+                    moving={[...props.moving, ...busy]}
+                    days={view === 'day' ? [{ ...anchor, hour: 0, minute: 0 }] : weekDays(anchor, firstDay)}
+                    first={range.first}
+                    last={range.last}
+                    events={eventsInRange(placed, range.first, range.last)}
+                    selectedKey={selected ? dayKey(selected) : ''}
+                    workHours={workHours}
+                    onSelectDay={selectDay}
+                    onDrop={move}
+                    onShift={shiftTime}
+                />
+            ) : view === 'timeline' ? (
                 <Timeline
                     {...props}
                     moving={[...props.moving, ...busy]}
@@ -1027,7 +1109,7 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                     const row = index + 2;
                     const busy = props.moving.indexOf(event.id) >= 0;
                     const live = drag && drag.id === event.id && drag.days !== 0
-                        ? shifted(event, { start: drag.edge === 'end' ? 0 : drag.days, end: drag.edge === 'start' ? 0 : drag.days })
+                        ? shifted(event, { start: drag.edge === 'end' ? 0 : drag.days * DAY, end: drag.edge === 'start' ? 0 : drag.days * DAY })
                         : event;
                     const bar = timelineBar(live, first, last);
                     // Text only on a bar wide enough to carry it: "S…" is not a title and "9:…" is not a time. The label
@@ -1201,6 +1283,546 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                         </React.Fragment>
                     );
                 })}
+            </div>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------ hour grid */
+
+interface IHourGridProps extends IProps {
+    /** One day (Day) or seven (Week). */
+    days: Wall[];
+    first: Wall;
+    last: Wall;
+    /** The events touching the days shown — the timed ones go in the hours, the rest in the all-day row. */
+    events: CalendarEvent[];
+    selectedKey: string;
+    /** The user's working day in minutes: where the grid opens, and what is not shaded. */
+    workHours: { start: number; end: number };
+    onDrop: (id: string, days: number) => void;
+    onShift: (id: string, startMinutes: number, endMinutes: number) => void;
+}
+
+/** A drag in the hour grid: a block moving, its end resizing, or an all-day bar moving by days. */
+interface HourDrag {
+    id: string;
+    mode: 'move' | 'end' | 'lane';
+    originX: number;
+    originY: number;
+    dayWidth: number;
+    /** The column the event sat in, 0-based, so a move cannot leave the days shown. */
+    column: number;
+    /** The block's drawn start and end in minutes from midnight; what a resize is clamped against. */
+    start: number;
+    end: number;
+    /** Whether the record has an end at all — an endless event's resize is measured from its start. */
+    hasEnd: boolean;
+    days: number;
+    minutes: number;
+}
+
+/** The shift a drag means, in minutes for each end — what the overlay draws and what is written. */
+function dragShift(drag: HourDrag): Shift {
+    if (drag.mode === 'end') {
+        // An endless event is drawn `end - start` long and has no end to move: its new end is measured from its start.
+        return { start: 0, end: (drag.hasEnd ? 0 : drag.end - drag.start) + drag.minutes };
+    }
+
+    const total = drag.days * DAY + drag.minutes;
+
+    return { start: total, end: total };
+}
+
+/** The user's wall clock now, read the way every stored instant is. */
+function wallNow(userOffset: (date: Date) => number): Wall {
+    const now = new Date();
+    const shiftedNow = new Date(now.getTime() + userOffset(now) * 60_000);
+
+    return {
+        year: shiftedNow.getUTCFullYear(),
+        month: shiftedNow.getUTCMonth(),
+        day: shiftedNow.getUTCDate(),
+        hour: shiftedNow.getUTCHours(),
+        minute: shiftedNow.getUTCMinutes(),
+    };
+}
+
+/**
+ * Day or Week drawn against the hours of the day (0.3.0).
+ *
+ * One scrolling box — not the root, which a form section sizes from the
+ * control (0.1.3's collapse) — holding a CSS grid: the day heads and the
+ * all-day row are sticky at its top, the hour labels sticky at its start,
+ * and each day is a column 24 hours tall with its events positioned in it.
+ * **The box decides its own height**, because a subgrid allocates none
+ * (measured 2026-10-04, SPEC.md H7): the user's working day plus an hour,
+ * eight to twelve hours of it, scrolled to open at the start of that day.
+ * A host that does allocate a height (canvas, full screen) gets it used.
+ *
+ * Events whose start and end fall on one day are drawn in the hours, side
+ * by side where they overlap (`layoutDay`); whole-day events and timed ones
+ * that cross midnight go in the all-day row (`allDayRow`).
+ *
+ * **Dragging is pointer capture**, as on the timeline and for the same
+ * reasons: a block moves by the distance dragged, in steps of the maker's
+ * `slotMinutes` down the day and whole days across it, and its bottom edge
+ * resizes the end alone. A handle takes only the press; the moves and the
+ * release reach the block. A press that never moved opens the record. The
+ * keyboard path is each block's menu: earlier or later by one step or one
+ * day, and the end alone by one step.
+ *
+ * **A free slot creates.** A press on the empty part of a day opens the
+ * quick create with that slot's start and end, both as
+ * `yyyy-MM-ddTHH:mm:00` — measured on the form to arrive as the user's
+ * wall clock (SPEC.md H3). The **+** in a day's head does the same at the
+ * start of the working day, which is the keyboard's way in.
+ */
+function HourGrid(props: IHourGridProps): React.ReactElement {
+    const { getString, days, first, last, events, workHours } = props;
+    const step = props.slotMinutes;
+    const scrollRef = React.useRef<HTMLDivElement>(null);
+    const [drag, setDrag] = React.useState<HourDrag | null>(null);
+    const dragged = React.useRef(false);
+    const interactive = !props.disabled && props.canMove;
+    const creatable = !props.disabled && props.canCreate;
+    const rangeKey = `${dayKey(first)}|${dayKey(last)}`;
+
+    /*
+     * The now line moves with the clock. An interval from an effect, cleared
+     * on unmount — the platform unmounts a virtual control's tree, so
+     * `destroy` owes nothing for it.
+     */
+    const [now, setNow] = React.useState<Wall>(() => wallNow(props.userOffset));
+    const { userOffset } = props;
+
+    React.useEffect(() => {
+        const timer = setInterval(() => setNow(wallNow(userOffset)), 60_000);
+
+        return () => clearInterval(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    /*
+     * Open on the working day: half an hour above its start sits just under
+     * the sticky rows, whatever their height, because sticky elements keep
+     * their place in the flow. Again when the range or the working day
+     * changes — a new week starts at the top of the day too.
+     */
+    React.useEffect(() => {
+        const box = scrollRef.current;
+
+        if (box) {
+            box.scrollTop = Math.max(0, (workHours.start / 60 - 0.5) * HOUR_PX);
+        }
+    }, [rangeKey, workHours.start]);
+
+    const live = drag && (drag.days !== 0 || drag.minutes !== 0)
+        ? events.map((event) => (event.id === drag.id ? shifted(event, dragShift(drag)) : event))
+        : events;
+    const lane = allDayRow(live, first, last);
+    const laneRows = lane.reduce((most, bar) => Math.max(most, bar.row + 1), 0);
+    const visibleHours = Math.min(12, Math.max(8, Math.ceil((workHours.end - workHours.start) / 60) + 1));
+    const boxHeight = props.allocatedHeight !== null
+        ? Math.max(240, props.allocatedHeight - 56)
+        : 44 + Math.max(1, laneRows) * 24 + 8 + visibleHours * HOUR_PX;
+    const columns = `var(--CalendarView-hoursAxis, 56px) repeat(${days.length}, minmax(var(--CalendarView-hoursDay, ${days.length === 1 ? 160 : 72}px), 1fr))`;
+    const at = (row: number, column: number, span = 1): React.CSSProperties => ({
+        gridRow: row,
+        gridColumn: span > 1 ? `${column} / span ${span}` : column,
+    });
+    const dayAt = (day: Wall, minutes: number): Wall => shiftMinutes({ ...day, hour: 0, minute: 0 }, minutes);
+    const dayLabel = (day: Wall): string => `${dayName(props.names, weekday(day), false)} ${day.day} ${monthName(props.names, day.month)}`;
+    const createAt = (day: Wall, minutes: number): void => {
+        const from = Math.min(Math.max(0, minutes), DAY - step);
+
+        props.onCreateAt(dayAt(day, from), dayAt(day, from + step));
+    };
+
+    const begin = (
+        pointer: React.PointerEvent<HTMLElement>,
+        event: CalendarEvent,
+        mode: HourDrag['mode'],
+        column: number,
+        start: number,
+        end: number,
+        width: number,
+    ): void => {
+        if (!interactive || pointer.button !== 0 || width <= 0) {
+            return;
+        }
+
+        // Capture can refuse a pointer the browser is not tracking; the drag still works while the pointer stays on the block.
+        try {
+            pointer.currentTarget.setPointerCapture(pointer.pointerId);
+        } catch (error) {
+            // no capture
+        }
+
+        dragged.current = false;
+        setDrag({ id: event.id, mode, originX: pointer.clientX, originY: pointer.clientY, dayWidth: width, column, start, end, hasEnd: event.end !== null, days: 0, minutes: 0 });
+    };
+
+    const during = (pointer: React.PointerEvent<HTMLElement>): void => {
+        if (!drag) {
+            return;
+        }
+
+        let minutes = 0;
+        let moved = 0;
+
+        if (drag.mode !== 'lane') {
+            minutes = snapMinutes(((pointer.clientY - drag.originY) / HOUR_PX) * 60, step);
+        }
+
+        if (drag.mode === 'move') {
+            // Within the day: the start not before midnight, the drawn end not past the next one.
+            minutes = Math.min(Math.max(minutes, -drag.start), DAY - drag.end);
+        } else if (drag.mode === 'end') {
+            // An end never above its start plus one step, never past midnight.
+            minutes = Math.min(Math.max(minutes, drag.start + step - drag.end), DAY - drag.end);
+        }
+
+        if (drag.mode !== 'end') {
+            moved = Math.round((pointer.clientX - drag.originX) / drag.dayWidth) * (props.isRTL ? -1 : 1);
+            moved = Math.min(Math.max(moved, -drag.column), days.length - 1 - drag.column);
+        }
+
+        if (minutes !== drag.minutes || moved !== drag.days) {
+            dragged.current = dragged.current || minutes !== 0 || moved !== 0;
+            setDrag({ ...drag, minutes, days: moved });
+        }
+    };
+
+    const finish = (pointer: React.PointerEvent<HTMLElement>, cancelled: boolean): void => {
+        if (!drag) {
+            return;
+        }
+
+        const captor = pointer.target as HTMLElement;
+
+        if (typeof captor.hasPointerCapture === 'function' && captor.hasPointerCapture(pointer.pointerId)) {
+            captor.releasePointerCapture(pointer.pointerId);
+        }
+
+        if (!cancelled && (drag.days !== 0 || drag.minutes !== 0)) {
+            if (drag.mode === 'lane') {
+                props.onDrop(drag.id, drag.days);
+            } else {
+                const shift = dragShift(drag);
+
+                props.onShift(drag.id, shift.start, shift.end);
+            }
+        }
+
+        setDrag(null);
+    };
+
+    /** Open the record — unless the press was the end of a drag. */
+    const open = (id: string): void => {
+        if (dragged.current) {
+            dragged.current = false;
+
+            return;
+        }
+
+        if (props.openOnEventClick) {
+            props.onOpenRecord(id);
+        }
+    };
+
+    const menu = (event: CalendarEvent, drawnLength: number, busy: boolean, timed: boolean): React.ReactElement | null => {
+        if (!props.canMove) {
+            return null;
+        }
+
+        const endBase = event.end ? 0 : drawnLength;
+        const options: { key: string; label: string; act: () => void }[] = [];
+
+        if (timed) {
+            options.push(
+                { key: 'earlier', label: getString('CalendarView_MoveEarlierMinutes').replace('{0}', String(step)), act: (): void => props.onShift(event.id, -step, -step) },
+                { key: 'later', label: getString('CalendarView_MoveLaterMinutes').replace('{0}', String(step)), act: (): void => props.onShift(event.id, step, step) },
+            );
+
+            if (props.hasEnd) {
+                options.push(
+                    { key: 'end-earlier', label: getString('CalendarView_EndEarlierMinutes').replace('{0}', String(step)), act: (): void => props.onShift(event.id, 0, endBase - step) },
+                    { key: 'end-later', label: getString('CalendarView_EndLaterMinutes').replace('{0}', String(step)), act: (): void => props.onShift(event.id, 0, endBase + step) },
+                );
+            }
+        }
+
+        options.push(
+            { key: 'day-earlier', label: getString('CalendarView_MoveEarlierDay'), act: (): void => props.onDrop(event.id, -1) },
+            { key: 'day-later', label: getString('CalendarView_MoveLaterDay'), act: (): void => props.onDrop(event.id, 1) },
+        );
+
+        return (
+            <Menu>
+                <MenuTrigger disableButtonEnhancement>
+                    <Button
+                        appearance="subtle"
+                        size="small"
+                        className="CalendarView-eventMenu"
+                        disabled={props.disabled || busy}
+                        aria-label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
+                        onPointerDown={(pointer): void => pointer.stopPropagation()}
+                    >
+                        ⋯
+                    </Button>
+                </MenuTrigger>
+                <MenuPopover>
+                    <MenuList>
+                        {options.map((option) => (
+                            <MenuItem key={option.key} onClick={option.act}>
+                                {option.label}
+                            </MenuItem>
+                        ))}
+                    </MenuList>
+                </MenuPopover>
+            </Menu>
+        );
+    };
+
+    const title = (event: CalendarEvent, prefix: string | null): React.ReactElement =>
+        props.openOnEventClick ? (
+            <button type="button" className="CalendarView-eventTitle" disabled={props.disabled} title={event.title} onClick={(): void => open(event.id)}>
+                {prefix && <span className="CalendarView-eventTime">{prefix}</span>}
+                {prefix && ' '}
+                {event.title}
+            </button>
+        ) : (
+            <span className="CalendarView-eventTitle" title={event.title}>
+                {prefix && <span className="CalendarView-eventTime">{prefix}</span>}
+                {prefix && ' '}
+                {event.title}
+            </span>
+        );
+
+    return (
+        <div className={`CalendarView-hours${drag ? ' is-dragging' : ''}`} role="grid" aria-label={props.title} aria-colcount={days.length + 1}>
+            <div className="CalendarView-hoursScroll" ref={scrollRef} style={{ height: `${boxHeight}px` }}>
+                <div className="CalendarView-hoursGrid" style={{ gridTemplateColumns: columns }}>
+                    <div className="CalendarView-hoursCorner" role="columnheader" style={at(1, 1)} />
+
+                    {days.map((day, index) => {
+                        const isToday = dayKey(day) === props.today;
+                        const isSelected = dayKey(day) === props.selectedKey;
+
+                        return (
+                            <div
+                                key={dayKey(day)}
+                                role="columnheader"
+                                className={`CalendarView-hoursHead${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}`}
+                                data-day={dayKey(day)}
+                                style={at(1, index + 2)}
+                            >
+                                <span className="CalendarView-hoursWeekday" aria-hidden="true">
+                                    {dayName(props.names, weekday(day), true)}
+                                </span>
+                                <button
+                                    type="button"
+                                    className="CalendarView-dayNumber"
+                                    disabled={props.disabled}
+                                    aria-current={isToday ? 'date' : undefined}
+                                    aria-pressed={isSelected}
+                                    aria-label={dayLabel(day)}
+                                    onClick={(): void => props.onSelectDay(day)}
+                                >
+                                    {day.day}
+                                </button>
+                                {creatable && (
+                                    <Button
+                                        appearance="subtle"
+                                        size="small"
+                                        className="CalendarView-dayAdd"
+                                        aria-label={getString('CalendarView_AddEvent').replace('{0}', dayLabel(day))}
+                                        onClick={(): void => createAt(day, workHours.start)}
+                                    >
+                                        <Icon path={ICONS.add} size={16} />
+                                    </Button>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    <div className="CalendarView-allDayLabel" style={at(2, 1)}>
+                        {getString('CalendarView_AllDay')}
+                    </div>
+
+                    <div
+                        className="CalendarView-allDay"
+                        role="row"
+                        style={{ ...at(2, 2, days.length), gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
+                    >
+                        {lane.map(({ event, bar, row }) => {
+                            const busy = props.moving.indexOf(event.id) >= 0;
+                            const classes = ['CalendarView-allDayBar'];
+
+                            if (event.allDay) {
+                                classes.push('is-allDay');
+                            }
+
+                            if (bar.continued) {
+                                classes.push('is-continued');
+                            }
+
+                            if (bar.continuing) {
+                                classes.push('is-continuing');
+                            }
+
+                            if (busy) {
+                                classes.push('is-moving');
+                            }
+
+                            if (drag && drag.id === event.id) {
+                                classes.push('is-held');
+                            }
+
+                            return (
+                                <div
+                                    key={event.id}
+                                    className={classes.join(' ')}
+                                    role="gridcell"
+                                    data-event={event.id}
+                                    data-from={bar.startCol}
+                                    data-to={bar.endCol}
+                                    style={{
+                                        gridColumn: `${bar.startCol + 1} / span ${bar.endCol - bar.startCol + 1}`,
+                                        gridRow: row + 1,
+                                        ...(event.color ? { borderInlineStartColor: event.color } : {}),
+                                    }}
+                                    onPointerDown={(pointer): void => {
+                                        const row = pointer.currentTarget.parentElement;
+
+                                        begin(pointer, event, 'lane', bar.startCol, 0, 0, row ? row.getBoundingClientRect().width / days.length : 0);
+                                    }}
+                                    onPointerMove={during}
+                                    onPointerUp={(pointer): void => finish(pointer, false)}
+                                    onPointerCancel={(pointer): void => finish(pointer, true)}
+                                >
+                                    {title(event, null)}
+                                    {menu(event, 0, busy, false)}
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div className="CalendarView-hoursAxis" aria-hidden="true" style={{ ...at(3, 1), height: `${24 * HOUR_PX}px` }}>
+                        {Array.from({ length: 23 }, (_, index) => index + 1).map((hour) => (
+                            <span key={hour} className="CalendarView-hoursLabel" style={{ top: `${hour * HOUR_PX}px` }}>
+                                {formatTime({ year: 2026, month: 0, day: 1, hour, minute: 0 }, props.names)}
+                            </span>
+                        ))}
+                    </div>
+
+                    {days.map((day, column) => {
+                        const blocks = layoutDay(live, day, step);
+                        const isToday = dayKey(day) === props.today;
+                        const showNow = sameDay(now, day);
+
+                        return (
+                            <div
+                                key={dayKey(day)}
+                                role="gridcell"
+                                className={`CalendarView-hoursDay${isToday ? ' is-today' : ''}${dayKey(day) === props.selectedKey ? ' is-selected' : ''}`}
+                                aria-label={`${dayLabel(day)}, ${getString('CalendarView_EventCount').replace('{0}', String(blocks.length))}`}
+                                data-day={dayKey(day)}
+                                style={{ ...at(3, column + 2), height: `${24 * HOUR_PX}px` }}
+                            >
+                                <div className="CalendarView-hoursOff" style={{ top: 0, height: `${(workHours.start / 60) * HOUR_PX}px` }} />
+                                <div className="CalendarView-hoursOff" style={{ top: `${(workHours.end / 60) * HOUR_PX}px`, bottom: 0 }} />
+
+                                {/* The free part of the day: a press here creates at that slot. Below the blocks, so a press on one never lands here. */}
+                                <div
+                                    className={`CalendarView-hoursSlots${creatable ? ' is-creatable' : ''}`}
+                                    onClick={(click): void => {
+                                        if (!creatable) {
+                                            return;
+                                        }
+
+                                        const box = click.currentTarget.getBoundingClientRect();
+                                        const minutes = Math.floor((((click.clientY - box.top) / HOUR_PX) * 60) / step) * step;
+
+                                        createAt(day, minutes);
+                                    }}
+                                />
+
+                                {showNow && <div className="CalendarView-hoursNow" aria-hidden="true" style={{ top: `${(minuteOfDay(now) / 60) * HOUR_PX}px` }} />}
+
+                                {blocks.map((block) => {
+                                    const { event } = block;
+                                    const busy = props.moving.indexOf(event.id) >= 0;
+                                    const height = Math.max(((block.end - block.start) / 60) * HOUR_PX - 2, 18);
+                                    const roomy = height >= 40;
+                                    const time = props.showTimes
+                                        ? roomy && event.end
+                                            ? `${formatTime(event.start, props.names)} – ${formatTime(event.end, props.names)}`
+                                            : formatTime(event.start, props.names)
+                                        : null;
+                                    const classes = ['CalendarView-hoursEvent'];
+
+                                    if (roomy) {
+                                        classes.push('is-roomy');
+                                    }
+
+                                    if (busy) {
+                                        classes.push('is-moving');
+                                    }
+
+                                    if (drag && drag.id === event.id) {
+                                        classes.push('is-held');
+                                    }
+
+                                    return (
+                                        <div
+                                            key={event.id}
+                                            className={classes.join(' ')}
+                                            data-event={event.id}
+                                            data-start={block.start}
+                                            data-end={block.end}
+                                            data-lane={`${block.lane}/${block.lanes}`}
+                                            style={{
+                                                top: `${(block.start / 60) * HOUR_PX + 1}px`,
+                                                height: `${height}px`,
+                                                insetInlineStart: `calc(${(block.lane / block.lanes) * 100}% + 1px)`,
+                                                width: `calc(${100 / block.lanes}% - 3px)`,
+                                                ...(event.color ? { borderInlineStartColor: event.color } : {}),
+                                            }}
+                                            onPointerDown={(pointer): void => {
+                                                const cell = pointer.currentTarget.parentElement;
+
+                                                begin(pointer, event, 'move', column, block.start, block.end, cell ? cell.getBoundingClientRect().width : 0);
+                                            }}
+                                            onPointerMove={during}
+                                            onPointerUp={(pointer): void => finish(pointer, false)}
+                                            onPointerCancel={(pointer): void => finish(pointer, true)}
+                                        >
+                                            {title(event, time)}
+                                            {event.badge && roomy && <span className="CalendarView-eventBadge">{event.badge}</span>}
+                                            {menu(event, block.end - block.start, busy, true)}
+                                            {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}
+                                            {/* The bottom edge resizes the end. A handle takes only the press — see the timeline's. */}
+                                            {interactive && props.hasEnd && !busy && (
+                                                <span
+                                                    className="CalendarView-hoursHandle"
+                                                    onPointerDown={(pointer): void => {
+                                                        pointer.stopPropagation();
+
+                                                        const cell = pointer.currentTarget.parentElement?.parentElement;
+
+                                                        begin(pointer, event, 'end', column, block.start, block.end, cell ? cell.getBoundingClientRect().width : 0);
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

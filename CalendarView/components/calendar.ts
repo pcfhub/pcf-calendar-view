@@ -63,8 +63,11 @@ export interface CalendarEvent {
  * `timeline` is the third: one row per event, the days of a month across, a
  * bar from start to end. It shares the month's range and navigation and is
  * the only view where an event's *length* is something the user can change.
+ *
+ * `day` (0.3.0) exists only with the hour grid on: one day drawn against its
+ * hours. With the grid on, `week` is drawn against the hours too.
  */
-export type View = 'month' | 'week' | 'timeline';
+export type View = 'month' | 'week' | 'day' | 'timeline';
 
 /** How `Behavior` is read off a metadata node. The numbers are the platform's. */
 export function behaviorOf(node: unknown): Behavior {
@@ -198,6 +201,28 @@ export function shiftDays(wall: Wall, days: number): Wall {
     return localWall(new Date(wall.year, wall.month, wall.day + days, wall.hour, wall.minute, 0, 0));
 }
 
+/**
+ * A wall clock moved by minutes — a day is 1,440.
+ *
+ * Through `Date.UTC`, which has no daylight saving: this is arithmetic on
+ * the components a person reads, and the browser's own zone has no say in
+ * it. `shiftDays` goes through local `Date` arithmetic, which is the same
+ * thing for whole days and is left as it was measured.
+ */
+export function shiftMinutes(wall: Wall, minutes: number): Wall {
+    return utcWall(new Date(Date.UTC(wall.year, wall.month, wall.day, wall.hour, wall.minute) + minutes * 60_000));
+}
+
+/** Minutes since the wall clock's midnight. */
+export function minuteOfDay(wall: Wall): number {
+    return wall.hour * 60 + wall.minute;
+}
+
+/** `yyyy-MM-ddTHH:mm` — a wall clock to the minute, for anything that must tell 9:00 from 10:00 on one day. */
+export function wallKey(wall: Wall): string {
+    return `${dayKey(wall)}T${pad(wall.hour)}:${pad(wall.minute)}`;
+}
+
 /** Days from `a` to `b`, by calendar day — sign included. */
 export function daysBetween(a: Wall, b: Wall): number {
     const first = Date.UTC(a.year, a.month, a.day);
@@ -295,6 +320,23 @@ export function formParameterDay(wall: Wall, names?: DateNames): string {
         .replace(/d/g, String(wall.day));
 }
 
+/**
+ * A wall clock with its time, as a form parameter: `yyyy-MM-ddTHH:mm:00`.
+ *
+ * **Not the user's pattern, and not the ISO day.** Measured 2026-10-04 on
+ * the quick create (SPEC.md, H3): `10/8/2026 2:30 PM`, `10/8/2026 14:30`
+ * and `2026-10-08T14:30:00` all opened on 2:30 PM and saved 14:30 in the
+ * **user's** zone — the zone-less ISO date-time is read as the user's wall
+ * clock, from a browser an hour away. So a time needs no pattern at all,
+ * and a `dd/MM/yyyy` user (whose short date is unmeasured as a parameter)
+ * is never asked to parse one. A bare ISO *day* is still wrong: that parses
+ * as UTC midnight and lands a day early, which is why `formParameterDay`
+ * exists.
+ */
+export function formParameterTime(wall: Wall): string {
+    return `${wallKey(wall)}:00`;
+}
+
 // ---------------------------------------------------------------------------
 // The grid
 // ---------------------------------------------------------------------------
@@ -368,6 +410,12 @@ export function timelineDays(anchor: Wall): Wall[] {
 
 /** The first and last day a view shows, inclusive — what the window filter asks for. */
 export function visibleRange(view: View, anchor: Wall, firstDay: number): { first: Wall; last: Wall } {
+    if (view === 'day') {
+        const day = { ...anchor, hour: 0, minute: 0 };
+
+        return { first: day, last: day };
+    }
+
     if (view === 'week') {
         const days = weekDays(anchor, firstDay);
 
@@ -387,6 +435,10 @@ export function visibleRange(view: View, anchor: Wall, firstDay: number): { firs
 
 /** Where a step of the navigation lands. */
 export function stepAnchor(view: View, anchor: Wall, direction: -1 | 1): Wall {
+    if (view === 'day') {
+        return shiftDays(anchor, direction);
+    }
+
     if (view === 'week') {
         return shiftDays(anchor, 7 * direction);
     }
@@ -669,7 +721,191 @@ export function pad(part: number): string {
     return `${part}`.padStart(2, '0');
 }
 
-/** A stable identity for the loaded events, so the component's overlay resets only when the data does. */
+/**
+ * A stable identity for the loaded events, so the component's overlay resets
+ * only when the data does. **To the minute** since 0.3.0: keyed by day, a
+ * move from 9:00 to 10:00 left the key unchanged when the data caught up,
+ * the overlay stayed, and the event was drawn an hour further than it went.
+ */
 export function eventsKey(events: CalendarEvent[]): string {
-    return events.map((event) => `${event.id}:${dayKey(event.start)}:${event.end ? dayKey(event.end) : ''}`).join('|');
+    return events.map((event) => `${event.id}:${wallKey(event.start)}:${event.end ? wallKey(event.end) : ''}`).join('|');
+}
+
+// ---------------------------------------------------------------------------
+// The hour grid (0.3.0)
+// ---------------------------------------------------------------------------
+
+/** The working day the grid opens on where the user's own cannot be read: 08:00–17:00, as minutes. */
+export const DEFAULT_WORK_HOURS = { start: 8 * 60, end: 17 * 60 };
+
+/** The shortest an event is drawn, in minutes, so a zero-length or ten-minute event is still something to press. */
+export const MIN_DRAWN_MINUTES = 30;
+
+/**
+ * `"08:00"` → 480. `usersettings.workdaystarttime` and `workdaystoptime`
+ * are strings in that shape (measured 2026-10-04, SPEC.md H5); anything
+ * else is `null` and the caller falls back.
+ */
+export function clockMinutes(text: unknown): number | null {
+    const match = typeof text === 'string' ? /^(\d{1,2}):(\d{2})$/.exec(text.trim()) : null;
+
+    if (!match) {
+        return null;
+    }
+
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+
+    return hour <= 24 && minute < 60 && hour * 60 + minute <= 1440 ? hour * 60 + minute : null;
+}
+
+/** The user's working day from a `usersettings` row, or the default where the row says nothing usable. */
+export function workHoursOf(row: unknown): { start: number; end: number } {
+    const values = (row ?? {}) as { workdaystarttime?: unknown; workdaystoptime?: unknown };
+    const start = clockMinutes(values.workdaystarttime);
+    const end = clockMinutes(values.workdaystoptime);
+
+    return start !== null && end !== null && end > start ? { start, end } : DEFAULT_WORK_HOURS;
+}
+
+/** A minute count snapped to the nearest step. */
+export function snapMinutes(minutes: number, step: number): number {
+    return Math.round(minutes / step) * step;
+}
+
+/** One event's place in a day of the hour grid: minutes from midnight, both ends, and its lane among those it overlaps. */
+export interface TimedBlock {
+    event: CalendarEvent;
+    start: number;
+    /** Where it ends on this day; at least `MIN_DRAWN_MINUTES` after the start, never past 1,440. */
+    end: number;
+    /** 0-based lane among the events it overlaps, and how many lanes that cluster needs. */
+    lane: number;
+    lanes: number;
+}
+
+/**
+ * Whether an event belongs in the hours rather than the all-day row: it has
+ * a time, and it starts and ends on one day. An end at midnight of the next
+ * day still ends this one (`23:00–00:00` is an hour, not two days).
+ */
+export function isTimedOneDay(event: CalendarEvent): boolean {
+    if (event.allDay) {
+        return false;
+    }
+
+    if (!event.end || sameDay(event.start, event.end)) {
+        return true;
+    }
+
+    return daysBetween(event.start, event.end) === 1 && event.end.hour === 0 && event.end.minute === 0;
+}
+
+/**
+ * The events drawn in one day's column of the hour grid, laid out.
+ *
+ * **Lanes, the way every calendar does it.** Events are taken in start
+ * order (the longer first on a tie); a cluster is a run whose drawn spans
+ * overlap one another, transitively; within a cluster each event takes the
+ * first lane free at its start, and every event in the cluster is drawn
+ * `1 / lanes` wide. Drawn spans, not stored ones: a ten-minute event is
+ * drawn thirty minutes tall, and two such events five minutes apart would
+ * otherwise sit on top of each other.
+ *
+ * An event with no end is drawn as `step` minutes — the same length a slot
+ * creates.
+ */
+export function layoutDay(events: CalendarEvent[], day: Wall, step: number): TimedBlock[] {
+    const blocks = events
+        .filter((event) => isTimedOneDay(event) && sameDay(event.start, day))
+        .map((event) => {
+            const start = minuteOfDay(event.start);
+            const stored = event.end ? (sameDay(event.start, event.end) ? minuteOfDay(event.end) : 1440) : start + step;
+            const end = Math.min(1440, Math.max(stored, start + MIN_DRAWN_MINUTES));
+
+            return { event, start, end, lane: 0, lanes: 1 };
+        })
+        .sort((a, b) => a.start - b.start || b.end - a.end || a.event.title.localeCompare(b.event.title));
+
+    let cluster: TimedBlock[] = [];
+    let clusterEnd = -1;
+    const laneEnds: number[] = [];
+
+    const close = (): void => {
+        const lanes = Math.max(1, ...cluster.map((block) => block.lane + 1));
+
+        for (const block of cluster) {
+            block.lanes = lanes;
+        }
+
+        cluster = [];
+        laneEnds.length = 0;
+    };
+
+    for (const block of blocks) {
+        if (cluster.length > 0 && block.start >= clusterEnd) {
+            close();
+        }
+
+        let lane = laneEnds.findIndex((end) => end <= block.start);
+
+        if (lane === -1) {
+            lane = laneEnds.length;
+            laneEnds.push(block.end);
+        } else {
+            laneEnds[lane] = block.end;
+        }
+
+        block.lane = lane;
+        cluster.push(block);
+        clusterEnd = Math.max(clusterEnd, block.end);
+    }
+
+    if (cluster.length > 0) {
+        close();
+    }
+
+    return blocks;
+}
+
+/** One event in the all-day row: its columns, like a timeline bar, and the row of the row it sits on. */
+export interface LaneBar {
+    event: CalendarEvent;
+    bar: Bar;
+    row: number;
+}
+
+/**
+ * The all-day row over an hour grid: every whole-day event, and every timed
+ * event that crosses midnight, as bars across the days shown — stacked so
+ * no two share a row on any day.
+ */
+export function allDayRow(events: CalendarEvent[], first: Wall, last: Wall): LaneBar[] {
+    const rowsEnd: number[] = [];
+    const placed: LaneBar[] = [];
+
+    for (const event of eventsInRange(events, first, last)) {
+        if (isTimedOneDay(event)) {
+            continue;
+        }
+
+        const bar = timelineBar(event, first, last);
+
+        if (!bar) {
+            continue;
+        }
+
+        let row = rowsEnd.findIndex((end) => end < bar.startCol);
+
+        if (row === -1) {
+            row = rowsEnd.length;
+            rowsEnd.push(bar.endCol);
+        } else {
+            rowsEnd[row] = bar.endCol;
+        }
+
+        placed.push({ event, bar, row });
+    }
+
+    return placed;
 }

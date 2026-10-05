@@ -108,7 +108,7 @@
     <value>Default view</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>The view the calendar opens in: a month grid, a week, or a timeline with one row per event. The user can switch at any time.</value>
+    <value>The view the calendar opens in: a month grid, a week, a day (with the hour grid on), or a timeline with one row per event. The user can switch at any time.</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>Month</value>
@@ -277,5 +277,44 @@
   </data>
   <data name="CalendarView_ReadOnly" xml:space="preserve">
     <value>This host cannot write to the record.</value>
+  </data>
+  <data name="View_Day" xml:space="preserve">
+    <value>Day</value>
+  </data>
+  <data name="HourGrid_Name" xml:space="preserve">
+    <value>Hour grid in Day and Week</value>
+  </data>
+  <data name="HourGrid_Desc" xml:space="preserve">
+    <value>Draws Day and Week against the hours of the day: events placed by their times and side by side where they overlap, dragged to another time or day, resized by their bottom edge, and created by pressing a free slot. Whole-day events sit in a row above. Off keeps the week as a list of each day's events.</value>
+  </data>
+  <data name="SlotMinutes_Name" xml:space="preserve">
+    <value>Time step</value>
+  </data>
+  <data name="SlotMinutes_Desc" xml:space="preserve">
+    <value>In the hour grid: what a drag snaps to, how long an event created from a free slot is, and how far an event's menu moves it.</value>
+  </data>
+  <data name="SlotMinutes_15" xml:space="preserve">
+    <value>15 minutes</value>
+  </data>
+  <data name="SlotMinutes_30" xml:space="preserve">
+    <value>30 minutes</value>
+  </data>
+  <data name="SlotMinutes_60" xml:space="preserve">
+    <value>1 hour</value>
+  </data>
+  <data name="CalendarView_AllDay" xml:space="preserve">
+    <value>All day</value>
+  </data>
+  <data name="CalendarView_MoveEarlierMinutes" xml:space="preserve">
+    <value>{0} minutes earlier</value>
+  </data>
+  <data name="CalendarView_MoveLaterMinutes" xml:space="preserve">
+    <value>{0} minutes later</value>
+  </data>
+  <data name="CalendarView_EndEarlierMinutes" xml:space="preserve">
+    <value>End {0} minutes earlier</value>
+  </data>
+  <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
+    <value>End {0} minutes later</value>
   </data>
 </root>

@@ -108,7 +108,7 @@
     <value>既定のビュー</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>カレンダーを開いたときのビュー。月のグリッド、週、またはイベントごとに 1 行のタイムライン。ユーザーはいつでも切り替えられます。</value>
+    <value>カレンダーを開いたときのビュー。月のグリッド、週、日 (時間グリッドがオンの場合)、またはイベントごとに 1 行のタイムラインです。ユーザーはいつでも切り替えられます。</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>月</value>
@@ -277,5 +277,44 @@
   </data>
   <data name="CalendarView_ReadOnly" xml:space="preserve">
     <value>このホストはレコードに書き込めません。</value>
+  </data>
+  <data name="View_Day" xml:space="preserve">
+    <value>日</value>
+  </data>
+  <data name="HourGrid_Name" xml:space="preserve">
+    <value>日と週の時間グリッド</value>
+  </data>
+  <data name="HourGrid_Desc" xml:space="preserve">
+    <value>日と週を一日の時間軸で表示します。イベントは時刻の位置に置かれ、重なる場合は横に並びます。別の時刻や日にドラッグでき、下端で長さを変更でき、空いている時間枠を押すと作成できます。終日のイベントは上の行に表示されます。オフの場合、週は各日のイベントの一覧のままです。</value>
+  </data>
+  <data name="SlotMinutes_Name" xml:space="preserve">
+    <value>時間の刻み</value>
+  </data>
+  <data name="SlotMinutes_Desc" xml:space="preserve">
+    <value>時間グリッドで、ドラッグがそろう刻み、空いている時間枠から作成するイベントの長さ、イベントのメニューで移動する幅です。</value>
+  </data>
+  <data name="SlotMinutes_15" xml:space="preserve">
+    <value>15 分</value>
+  </data>
+  <data name="SlotMinutes_30" xml:space="preserve">
+    <value>30 分</value>
+  </data>
+  <data name="SlotMinutes_60" xml:space="preserve">
+    <value>1 時間</value>
+  </data>
+  <data name="CalendarView_AllDay" xml:space="preserve">
+    <value>終日</value>
+  </data>
+  <data name="CalendarView_MoveEarlierMinutes" xml:space="preserve">
+    <value>{0} 分早める</value>
+  </data>
+  <data name="CalendarView_MoveLaterMinutes" xml:space="preserve">
+    <value>{0} 分遅らせる</value>
+  </data>
+  <data name="CalendarView_EndEarlierMinutes" xml:space="preserve">
+    <value>終了を {0} 分早める</value>
+  </data>
+  <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
+    <value>終了を {0} 分遅らせる</value>
   </data>
 </root>

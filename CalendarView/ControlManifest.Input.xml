@@ -105,6 +105,9 @@
       can be changed by dragging an edge, which writes the one column that
       moved. Adding an Enum value is additive; a form configured with `month`
       or `week` is untouched by the upgrade.
+
+      `day` (0.3.0) is one day against its hours, and exists only with
+      `hourGrid` on; without it a maker's `day` opens the week it sits in.
     -->
     <property name="defaultView"
               display-name-key="DefaultView_Name"
@@ -115,7 +118,47 @@
               default-value="month">
       <value name="month" display-name-key="View_Month">month</value>
       <value name="week" display-name-key="View_Week">week</value>
+      <value name="day" display-name-key="View_Day">day</value>
       <value name="timeline" display-name-key="View_Timeline">timeline</value>
+    </property>
+
+    <!--
+      0.3.0: Day and Week drawn against the hours of the day — events placed
+      by their times, side by side where they overlap, dragged to another
+      time, their end dragged to change their length, a free slot pressed to
+      create one there. Whole-day events and ones that cross midnight sit in
+      an all-day row above.
+
+      **Off unless the maker turns it on**, so a calendar already installed
+      keeps the week it has. A TwoOptions whose off is the platform's own
+      untouched value — `raw` is `false` for a property nobody set — so the
+      default needs no inversion (the skill's *A TwoOptions input cannot
+      default to on* is about the other direction).
+    -->
+    <property name="hourGrid"
+              display-name-key="HourGrid_Name"
+              description-key="HourGrid_Desc"
+              of-type="TwoOptions"
+              usage="input"
+              required="false"
+              default-value="false" />
+
+    <!--
+      The hour grid's step: what a drag snaps to, how long an event created
+      from a slot is, and how far the menu moves one. An Enum, because a
+      free number would offer 7 minutes; three values cover every calendar
+      a form shows.
+    -->
+    <property name="slotMinutes"
+              display-name-key="SlotMinutes_Name"
+              description-key="SlotMinutes_Desc"
+              of-type="Enum"
+              usage="input"
+              required="false"
+              default-value="30">
+      <value name="m15" display-name-key="SlotMinutes_15">15</value>
+      <value name="m30" display-name-key="SlotMinutes_30">30</value>
+      <value name="m60" display-name-key="SlotMinutes_60">60</value>
     </property>
 
     <!--

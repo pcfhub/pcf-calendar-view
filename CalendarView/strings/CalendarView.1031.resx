@@ -108,7 +108,7 @@
     <value>Standardansicht</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>Die Ansicht, in der der Kalender geöffnet wird: ein Monatsraster, eine Woche oder eine Zeitleiste mit einer Zeile pro Ereignis. Der Benutzer kann jederzeit wechseln.</value>
+    <value>Die Ansicht, in der der Kalender geöffnet wird: ein Monatsraster, eine Woche, ein Tag (mit eingeschaltetem Stundenraster) oder eine Zeitleiste mit einer Zeile pro Termin. Der Benutzer kann jederzeit wechseln.</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>Monat</value>
@@ -277,5 +277,44 @@
   </data>
   <data name="CalendarView_ReadOnly" xml:space="preserve">
     <value>Dieser Host kann den Datensatz nicht schreiben.</value>
+  </data>
+  <data name="View_Day" xml:space="preserve">
+    <value>Tag</value>
+  </data>
+  <data name="HourGrid_Name" xml:space="preserve">
+    <value>Stundenraster in Tag und Woche</value>
+  </data>
+  <data name="HourGrid_Desc" xml:space="preserve">
+    <value>Zeigt Tag und Woche über die Stunden des Tages: Termine nach ihren Uhrzeiten platziert und bei Überschneidung nebeneinander, auf eine andere Uhrzeit oder einen anderen Tag gezogen, an der Unterkante in der Länge geändert und durch Drücken auf einen freien Zeitabschnitt angelegt. Ganztägige Termine stehen in einer Zeile darüber. Aus zeigt die Woche als Liste der Termine jedes Tages.</value>
+  </data>
+  <data name="SlotMinutes_Name" xml:space="preserve">
+    <value>Zeitschritt</value>
+  </data>
+  <data name="SlotMinutes_Desc" xml:space="preserve">
+    <value>Im Stundenraster: worauf ein Ziehen einrastet, wie lang ein aus einem freien Zeitabschnitt angelegter Termin ist und wie weit das Menü eines Termins ihn verschiebt.</value>
+  </data>
+  <data name="SlotMinutes_15" xml:space="preserve">
+    <value>15 Minuten</value>
+  </data>
+  <data name="SlotMinutes_30" xml:space="preserve">
+    <value>30 Minuten</value>
+  </data>
+  <data name="SlotMinutes_60" xml:space="preserve">
+    <value>1 Stunde</value>
+  </data>
+  <data name="CalendarView_AllDay" xml:space="preserve">
+    <value>Ganztägig</value>
+  </data>
+  <data name="CalendarView_MoveEarlierMinutes" xml:space="preserve">
+    <value>{0} Minuten früher</value>
+  </data>
+  <data name="CalendarView_MoveLaterMinutes" xml:space="preserve">
+    <value>{0} Minuten später</value>
+  </data>
+  <data name="CalendarView_EndEarlierMinutes" xml:space="preserve">
+    <value>{0} Minuten früher enden</value>
+  </data>
+  <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
+    <value>{0} Minuten später enden</value>
   </data>
 </root>

@@ -257,6 +257,8 @@ const INPUTS = {
     allowCreate: true,
     openOnEventClick: true,
     showTimes: true,
+    hourGrid: false,
+    slotMinutes: '30',
 };
 
 function bind(options) {
@@ -470,12 +472,15 @@ check('a record with no start is not an event', !markup(west).includes('Unschedu
 check('today wears aria-current', /aria-current="date"/.test(cell(markup(plain), '2026-09-14') || ''), (cell(markup(plain), '2026-09-14') || '').slice(0, 160));
 
 /*
- * The offset call is memoised per day. On a tenant whose zone has no DST
- * rule for the year, the platform logs an error on *every* dated call
- * (measured 2026-09-16), and a calendar that asks per event per render
- * produced one line per event on every repaint. Rendering the component
- * (which reads every row) three times over must cost one call per distinct
- * day, and never the bare call — which answers the standard offset.
+ * The offset call is memoised per hour (per day through 0.2.x). On a tenant
+ * whose zone has no DST rule for the year, the platform logs an error on
+ * *every* dated call (measured 2026-09-16), and a calendar that asks per
+ * event per render produced one line per event on every repaint. Rendering
+ * the component (which reads every row) three times over must cost one
+ * call per distinct UTC hour, and never the bare call — which answers the
+ * standard offset. Per hour since 0.3.0, because the test form's user is in
+ * a zone with DST (SPEC.md H6) and a per-day key read up to five hours of a
+ * transition day with the neighbouring offset — an hour out on an hour grid.
  */
 const thrifty = bind({ userTimeZoneOffset: -300 });
 
@@ -487,16 +492,16 @@ markup(thrifty);
 
 const offsetCalls = thrifty.calls().filter((call) => call.startsWith('userSettings.getTimeZoneOffsetMinutes'));
 
-// Every UTC day a loaded start or end falls on, plus today: the number of distinct answers the control can need.
-const distinctDays = new Set(
+// Every UTC hour a loaded start or end falls in, plus now: the number of distinct answers the control can need.
+const distinctHours = new Set(
     fixture.records.slice(0, 5)
         .flatMap((row) => [row.values.scheduledstart, row.values.scheduledend])
         .filter(Boolean)
-        .map((iso) => iso.slice(0, 10))
-        .concat(['2026-09-14']),
+        .map((iso) => iso.slice(0, 13))
+        .concat(['2026-09-14T12']),
 );
 
-check('asks getTimeZoneOffsetMinutes once per distinct day, however many renders', offsetCalls.length === distinctDays.size, `${offsetCalls.length} calls for ${distinctDays.size} distinct days over three renders`);
+check('asks getTimeZoneOffsetMinutes once per distinct hour, however many renders', offsetCalls.length === distinctHours.size, `${offsetCalls.length} calls for ${distinctHours.size} distinct hours over three renders`);
 
 check('and always with the date — the bare call is the standard offset', offsetCalls.every((call) => call.includes('"dated"')), offsetCalls.find((call) => !call.includes('"dated"')) || '');
 
@@ -1014,6 +1019,229 @@ check('the same for initialDate', switched.props().initialDay === '2026-03-10' &
     const apiResizeCall = apiResized.calls().find((call) => call.startsWith('webAPI.updateRecord'));
 
     check('an end column the record refuses goes through the Web API, that column alone', Boolean(apiResizeCall) && apiResizeCall.includes('"scheduledend":"2026-09-19T16:00:00.000Z"') && !apiResizeCall.includes('scheduledstart'), apiResizeCall || 'no updateRecord');
+
+    /* ------------------------------------------------------ the hour grid (0.3.0) */
+
+    /*
+     * Day and Week against the hours, behind `hourGrid` — off by default, so
+     * an installed calendar's week is untouched. Everything placed here is
+     * the user's wall clock (UTC−5 in these binds): Sprint planning is 14:00Z
+     * on the 14th, so 09:00 to 10:00 for that user, and the Interview 16:30Z
+     * is 11:30 to 12:15.
+     */
+    const HOURS = { defaultView: 'week', hourGrid: true, initialDate: '2026-09-14' };
+
+    /**
+     * Bind, then report the range the way the component's effect does on a
+     * real host — a static render runs no effects — and let the fetch land.
+     */
+    function hours(options, first = W(2026, 9, 13), last = W(2026, 9, 19)) {
+        const view = bind(options);
+
+        view.props().onRangeChange(first, last);
+        view.settle();
+
+        return view;
+    }
+
+    /** Every event block the hour grid drew: id → its drawn minutes and lane. */
+    function blocks(html) {
+        const found = {};
+
+        for (const hit of html.matchAll(/class="CalendarView-hoursEvent[^"]*" data-event="([^"]+)" data-start="(\d+)" data-end="(\d+)" data-lane="([^"]+)"/g)) {
+            found[hit[1]] = { start: Number(hit[2]), end: Number(hit[3]), lane: hit[4] };
+        }
+
+        return found;
+    }
+
+    /** Every bar in the all-day row: id → its columns. */
+    function allDay(html) {
+        const found = {};
+
+        for (const hit of html.matchAll(/class="CalendarView-allDayBar[^"]*"[^>]*data-event="([^"]+)" data-from="(\d+)" data-to="(\d+)"/g)) {
+            found[hit[1]] = { from: Number(hit[2]), to: Number(hit[3]) };
+        }
+
+        return found;
+    }
+
+    const listWeek = bind({ inputs: { defaultView: 'week', initialDate: '2026-09-14' }, userTimeZoneOffset: -300 });
+    const listMarkup = markup(listWeek);
+
+    check('with hourGrid off the week is the list it was — no hours, no Day', !listMarkup.includes('CalendarView-hours') && !listMarkup.includes('resx:View_Day'), '');
+
+    const hourWeek = hours({ inputs: HOURS, userTimeZoneOffset: -300 });
+    const hourMarkup = markup(hourWeek);
+    const drawnHours = blocks(hourMarkup);
+
+    check('with it on, the week is drawn against the hours and Day is offered', hourMarkup.includes('CalendarView-hoursGrid') && hourMarkup.includes('resx:View_Day'), '');
+
+    check('an event sits at its start and end in the user\'s zone', drawnHours.e8 && drawnHours.e8.start === 540 && drawnHours.e8.end === 600, JSON.stringify(drawnHours.e8));
+
+    check('a 45-minute one too, to the minute', drawnHours.e9 && drawnHours.e9.start === 690 && drawnHours.e9.end === 735, JSON.stringify(drawnHours.e9));
+
+    check('an evening one on the day it is for that user, not the UTC day', drawnHours.e1 && drawnHours.e1.start === 1290 && !(cell(hourMarkup, '2026-09-15') || '').includes('e1'), JSON.stringify(drawnHours.e1));
+
+    check('a timed event crossing midnight goes in the all-day row, across its days', allDay(hourMarkup).e2 && allDay(hourMarkup).e2.from === 3 && allDay(hourMarkup).e2.to === 5 && !drawnHours.e2, JSON.stringify(allDay(hourMarkup)));
+
+    check('the hour labels are the user\'s pattern', hourMarkup.includes('>1:00 PM<'), '');
+
+    check('a 24-hour user gets 24-hour labels', markup(hours({ inputs: HOURS, userTimeZoneOffset: -300, dateFormattingInfo: { shortTimePattern: 'HH:mm' } })).includes('>13:00<'), '');
+
+    check('the default view day is the week without the grid', bind({ inputs: { defaultView: 'day' } }).props().defaultView === 'week', bind({ inputs: { defaultView: 'day' } }).props().defaultView);
+
+    const dayView = hours({ inputs: { ...HOURS, defaultView: 'day' }, userTimeZoneOffset: -300 }, W(2026, 9, 14), W(2026, 9, 14));
+    const dayMarkup = markup(dayView);
+
+    check('and Day with it, one day against its hours', dayView.props().defaultView === 'day' && Object.keys(blocks(dayMarkup)).sort().join(',') === 'e1,e8,e9', Object.keys(blocks(dayMarkup)).join(','));
+
+    check('headed by the day itself', dayMarkup.includes('Monday 14 September 2026'), (/CalendarView-heading[^>]*>([^<]*)</.exec(dayMarkup) || [])[1]);
+
+    /*
+     * A move by time goes through the record as a `Date` whose local
+     * components are the user's wall clock (SPEC.md H1: both columns, minutes
+     * kept, one save, from a browser an hour off the user).
+     */
+    const timeMoved = hours({ inputs: HOURS, userTimeZoneOffset: -300 });
+
+    timeMoved.props().onShiftTime('e8', 60, 60);
+    await flush();
+
+    const timeStaged = timeMoved.calls().filter((call) => call.startsWith('record.setValue'));
+
+    check(
+        'a move by an hour writes both columns through the record, an hour later on the same day',
+        timeStaged.includes(`record.setValue("scheduledstart=\\"${local(2026, 9, 14, 10, 0).toISOString()}\\"")`)
+            && timeStaged.includes(`record.setValue("scheduledend=\\"${local(2026, 9, 14, 11, 0).toISOString()}\\"")`),
+        timeStaged.join(' ') || 'no record.setValue',
+    );
+    check('then one save', timeMoved.calls().filter((call) => call.startsWith('record.save')).length === 1, '');
+    check('and reports the day it landed on', timeMoved.outputs().movedRecordId === 'e8' && timeMoved.outputs().selectedDate === '2026-09-14', JSON.stringify(timeMoved.outputs()));
+
+    timeMoved.settle();
+
+    /*
+     * **The override is retired to the minute.** The save is followed by an
+     * unasked pass still carrying the old value; a reconcile comparing days
+     * retired this override on it — same day — and the event jumped back to
+     * 9:00 until the data caught up.
+     */
+    check('the event holds at 10:00 across the pass that still reports 9:00', blocks(markup(timeMoved)).e8.start === 600, JSON.stringify(blocks(markup(timeMoved)).e8));
+
+    timeMoved.handle.reread();
+    timeMoved.settle();
+
+    check('and once the record agrees it is drawn there from data — once, not twice', blocks(markup(timeMoved)).e8.start === 600 && blocks(markup(timeMoved)).e8.end === 660, JSON.stringify(blocks(markup(timeMoved)).e8));
+
+    const timeApi = hours({ inputs: HOURS, userTimeZoneOffset: -300, quirks: { readOnlyColumns: ['scheduledstart'] } });
+
+    timeApi.props().onShiftTime('e8', 90, 90);
+    await flush();
+
+    const timeApiCall = timeApi.calls().find((call) => call.startsWith('webAPI.updateRecord'));
+
+    check(
+        'through the Web API the instants are the user\'s 10:30 and 11:30 (SPEC.md H2)',
+        Boolean(timeApiCall) && timeApiCall.includes('"scheduledstart":"2026-09-14T15:30:00.000Z"') && timeApiCall.includes('"scheduledend":"2026-09-14T16:30:00.000Z"'),
+        timeApiCall || 'no updateRecord',
+    );
+
+    const endMoved = hours({ inputs: HOURS, userTimeZoneOffset: -300 });
+
+    endMoved.props().onShiftTime('e9', 0, 30);
+    await flush();
+
+    const endStaged = endMoved.calls().filter((call) => call.startsWith('record.setValue'));
+
+    check('dragging the bottom edge writes the end alone, by the step', endStaged.length === 1 && endStaged[0].includes(`scheduledend=\\"${local(2026, 9, 14, 12, 45).toISOString()}`), endStaged.join(' ') || 'no setValue');
+
+    const endlessTimed = hours({ inputs: HOURS, userTimeZoneOffset: -300 }, W(2026, 9, 20), W(2026, 9, 26));
+
+    endlessTimed.props().onShiftTime('e3', 30, 30);
+    await flush();
+
+    const endlessStaged = endlessTimed.calls().filter((call) => call.startsWith('record.setValue'));
+
+    check('moving an event with no end leaves it with none', endlessStaged.length === 1 && endlessStaged[0].startsWith('record.setValue("scheduledstart='), endlessStaged.join(' ') || 'no setValue');
+
+    const endlessResized = hours({ inputs: HOURS, userTimeZoneOffset: -300 }, W(2026, 9, 20), W(2026, 9, 26));
+
+    endlessResized.props().onShiftTime('e3', 0, 60);
+    await flush();
+
+    const givenEnd = endlessResized.calls().find((call) => call.startsWith('record.setValue'));
+
+    check('resizing one gives it an end, measured from its start', Boolean(givenEnd) && givenEnd.includes(`scheduledend=\\"${local(2026, 9, 21, 11, 0).toISOString()}`), givenEnd || 'no setValue');
+
+    const upsideDown = hours({ inputs: HOURS, userTimeZoneOffset: -300 });
+
+    upsideDown.props().onShiftTime('e8', 0, -120);
+    await flush();
+
+    check('an end dragged above its start is refused, not written', !upsideDown.calls().some((call) => call.startsWith('record.setValue')) && upsideDown.notifications() === 0, upsideDown.calls().join(' '));
+
+    /* Two events that overlap share the column, half each. */
+    const crowded = hours({ inputs: HOURS, userTimeZoneOffset: -300 });
+
+    crowded.props().onShiftTime('e9', -120, -120);
+    crowded.settle();
+
+    const crowdedBlocks = blocks(markup(crowded));
+
+    check('two events that overlap are drawn side by side', crowdedBlocks.e8.lane === '0/2' && crowdedBlocks.e9.lane === '1/2', JSON.stringify(crowdedBlocks));
+    check('and one that does not keeps the whole width', crowdedBlocks.e1.lane === '0/1', JSON.stringify(crowdedBlocks.e1));
+
+    /*
+     * A slot opens the quick create with both columns as the user's wall
+     * clock, `yyyy-MM-ddTHH:mm:00` (SPEC.md H3: parsed in the user's zone,
+     * whatever the user's patterns).
+     */
+    const slotted = hours({ inputs: HOURS, userTimeZoneOffset: -300, dateFormattingInfo: { shortDatePattern: 'dd.MM.yyyy', shortTimePattern: 'HH:mm' } });
+
+    slotted.props().onCreateAt({ year: 2026, month: 8, day: 15, hour: 14, minute: 0 }, { year: 2026, month: 8, day: 15, hour: 14, minute: 30 });
+    await flush();
+
+    const slotOpened = slotted.calls().find((call) => call.startsWith('navigation.openForm'));
+
+    check(
+        'a free slot opens the quick create with start and end as the user\'s wall clock, whatever the patterns',
+        Boolean(slotOpened) && slotOpened.includes('"parameters":{"scheduledstart":"2026-09-15T14:00:00","scheduledend":"2026-09-15T14:30:00"}'),
+        slotOpened || 'no openForm',
+    );
+    check('and selects that day', slotted.outputs().selectedDate === '2026-09-15', JSON.stringify(slotted.outputs()));
+
+    /* The user's working day, from `usersettings` (SPEC.md H5). */
+    const worker = bind({ inputs: HOURS });
+    const day = await worker.props().loadWorkHours();
+
+    check('reads the working day from the user\'s own usersettings row', day.start === 540 && day.end === 1080, JSON.stringify(day));
+    check('by the user\'s id', worker.calls().some((call) => call.includes('webAPI.retrieveMultipleRecords') && call.includes('usersettings') && call.includes('systemuserid eq 00000000-0000-0000-0000-0000000000aa')), worker.calls().filter((call) => call.includes('retrieveMultipleRecords')).join(' '));
+
+    const refusedDay = await bind({ inputs: HOURS, webApiFails: true }).props().loadWorkHours();
+
+    check('a refused read is 08:00–17:00, not a failure', refusedDay.start === 480 && refusedDay.end === 1020, JSON.stringify(refusedDay));
+    check('there is nothing to read in canvas', bind({ inputs: HOURS, host: 'canvas' }).props().loadWorkHours === null, '');
+    check('nor with the grid off', bind({}).props().loadWorkHours === null, '');
+
+    /*
+     * **Daylight saving, read per hour.** US Central falls back at 07:00Z on
+     * 1 November: 00:30 that night is −300, 09:00 that morning is −360. A
+     * cache keyed by the UTC day answered both with whichever was asked
+     * first, and drew one of them an hour out.
+     */
+    const central = (date) => (date.getTime() < Date.UTC(2026, 10, 1, 7) ? -300 : -360);
+    const fallBack = bind({
+        inputs: { ...HOURS, defaultView: 'day', initialDate: '2026-11-01' },
+        userTimeZoneOffset: central,
+        records: [
+            { id: 'n1', values: { subject: 'Before the change', scheduledstart: '2026-11-01T05:30:00Z', scheduledend: '2026-11-01T06:00:00Z', prioritycode: 0 } },
+            { id: 'n2', values: { subject: 'After it', scheduledstart: '2026-11-01T15:00:00Z', scheduledend: '2026-11-01T16:00:00Z', prioritycode: 0 } },
+        ],
+    });
+    const fallBlocks = blocks(markup(fallBack));
+
+    check('on the day the clocks change, both sides of it are placed by their own offset', fallBlocks.n1 && fallBlocks.n1.start === 30 && fallBlocks.n2 && fallBlocks.n2.start === 540, JSON.stringify(fallBlocks));
 
     /* ------------------------------------------------------ metadata */
 

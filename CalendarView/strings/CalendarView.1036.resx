@@ -108,7 +108,7 @@
     <value>Vue par défaut</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>La vue dans laquelle le calendrier s’ouvre : une grille mensuelle, une semaine ou une chronologie avec une ligne par événement. L’utilisateur peut en changer à tout moment.</value>
+    <value>La vue dans laquelle le calendrier s’ouvre : une grille mensuelle, une semaine, un jour (avec la grille horaire activée) ou une chronologie avec une ligne par événement. L’utilisateur peut changer à tout moment.</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>Mois</value>
@@ -277,5 +277,44 @@
   </data>
   <data name="CalendarView_ReadOnly" xml:space="preserve">
     <value>Cet hôte ne peut pas écrire dans l’enregistrement.</value>
+  </data>
+  <data name="View_Day" xml:space="preserve">
+    <value>Jour</value>
+  </data>
+  <data name="HourGrid_Name" xml:space="preserve">
+    <value>Grille horaire en Jour et Semaine</value>
+  </data>
+  <data name="HourGrid_Desc" xml:space="preserve">
+    <value>Affiche Jour et Semaine selon les heures de la journée : les événements placés à leur heure et côte à côte quand ils se chevauchent, déplacés vers une autre heure ou un autre jour, redimensionnés par leur bord inférieur, et créés en appuyant sur un créneau libre. Les événements sur la journée entière sont dans une ligne au-dessus. Désactivé, la semaine reste une liste des événements de chaque jour.</value>
+  </data>
+  <data name="SlotMinutes_Name" xml:space="preserve">
+    <value>Pas horaire</value>
+  </data>
+  <data name="SlotMinutes_Desc" xml:space="preserve">
+    <value>Dans la grille horaire : le pas sur lequel un glissement s’aligne, la durée d’un événement créé depuis un créneau libre et l’écart dont le menu d’un événement le déplace.</value>
+  </data>
+  <data name="SlotMinutes_15" xml:space="preserve">
+    <value>15 minutes</value>
+  </data>
+  <data name="SlotMinutes_30" xml:space="preserve">
+    <value>30 minutes</value>
+  </data>
+  <data name="SlotMinutes_60" xml:space="preserve">
+    <value>1 heure</value>
+  </data>
+  <data name="CalendarView_AllDay" xml:space="preserve">
+    <value>Toute la journée</value>
+  </data>
+  <data name="CalendarView_MoveEarlierMinutes" xml:space="preserve">
+    <value>{0} minutes plus tôt</value>
+  </data>
+  <data name="CalendarView_MoveLaterMinutes" xml:space="preserve">
+    <value>{0} minutes plus tard</value>
+  </data>
+  <data name="CalendarView_EndEarlierMinutes" xml:space="preserve">
+    <value>Finir {0} minutes plus tôt</value>
+  </data>
+  <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
+    <value>Finir {0} minutes plus tard</value>
   </data>
 </root>

@@ -108,7 +108,7 @@
     <value>Vista predeterminada</value>
   </data>
   <data name="DefaultView_Desc" xml:space="preserve">
-    <value>La vista con la que se abre el calendario: una cuadrícula mensual, una semana o un cronograma con una fila por evento. El usuario puede cambiarla en cualquier momento.</value>
+    <value>La vista con la que se abre el calendario: una cuadrícula mensual, una semana, un día (con la cuadrícula horaria activada) o un cronograma con una fila por evento. El usuario puede cambiar en cualquier momento.</value>
   </data>
   <data name="View_Month" xml:space="preserve">
     <value>Mes</value>
@@ -277,5 +277,44 @@
   </data>
   <data name="CalendarView_ReadOnly" xml:space="preserve">
     <value>Este host no puede escribir en el registro.</value>
+  </data>
+  <data name="View_Day" xml:space="preserve">
+    <value>Día</value>
+  </data>
+  <data name="HourGrid_Name" xml:space="preserve">
+    <value>Cuadrícula horaria en Día y Semana</value>
+  </data>
+  <data name="HourGrid_Desc" xml:space="preserve">
+    <value>Muestra Día y Semana según las horas del día: los eventos colocados por su hora y uno al lado de otro cuando se solapan, arrastrados a otra hora u otro día, redimensionados por su borde inferior y creados al pulsar una franja libre. Los eventos de todo el día quedan en una fila encima. Desactivado, la semana sigue siendo una lista de los eventos de cada día.</value>
+  </data>
+  <data name="SlotMinutes_Name" xml:space="preserve">
+    <value>Intervalo de tiempo</value>
+  </data>
+  <data name="SlotMinutes_Desc" xml:space="preserve">
+    <value>En la cuadrícula horaria: el intervalo al que se ajusta un arrastre, la duración de un evento creado desde una franja libre y cuánto lo mueve el menú de un evento.</value>
+  </data>
+  <data name="SlotMinutes_15" xml:space="preserve">
+    <value>15 minutos</value>
+  </data>
+  <data name="SlotMinutes_30" xml:space="preserve">
+    <value>30 minutos</value>
+  </data>
+  <data name="SlotMinutes_60" xml:space="preserve">
+    <value>1 hora</value>
+  </data>
+  <data name="CalendarView_AllDay" xml:space="preserve">
+    <value>Todo el día</value>
+  </data>
+  <data name="CalendarView_MoveEarlierMinutes" xml:space="preserve">
+    <value>{0} minutos antes</value>
+  </data>
+  <data name="CalendarView_MoveLaterMinutes" xml:space="preserve">
+    <value>{0} minutos después</value>
+  </data>
+  <data name="CalendarView_EndEarlierMinutes" xml:space="preserve">
+    <value>Terminar {0} minutos antes</value>
+  </data>
+  <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
+    <value>Terminar {0} minutos después</value>
   </data>
 </root>

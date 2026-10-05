@@ -1,23 +1,26 @@
 import * as React from 'react';
 import { IInputs, IOutputs } from './generated/ManifestTypes';
-// PROBE 0.2.5 — remove with CalendarView/probe.ts before the real build.
-import { installProbe } from './probe';
 import { CalendarViewControl, Edge, IProps, Metadata, Row, MoveOutcome } from './components/CalendarViewControl';
 import {
     Behavior,
+    DEFAULT_WORK_HOURS,
     ROLES,
     Wall,
     behaviorOf,
-    compareDay,
+    compareWall,
     dateForWrite,
     dayKey,
     formParameterDay,
+    formParameterTime,
     formatOf,
     optionColors,
     shiftDays,
+    shiftMinutes,
     valueForApi,
+    wallKey,
     wallOf,
     windowFilter,
+    workHoursOf,
 } from './components/calendar';
 
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
@@ -136,6 +139,9 @@ function bareGuid(raw: unknown): string | null {
     return /^[0-9a-f-]{36}$/.test(trimmed) ? trimmed : null;
 }
 
+/** A day in minutes — what a whole-day move is, now that every move is in minutes. */
+const DAY = 1440;
+
 /** The platform's ceiling on a page. Not in the type definitions. */
 const MAX_PAGE_SIZE = 250;
 
@@ -154,11 +160,15 @@ const MAX_PAGE_SIZE = 250;
  * `UserDateTimeUtils_getConstraintByYear_InvalidDate` to the console on
  * *every* call — and still answers (measured 2026-09-16, `-300`). A calendar
  * asks once per event per render, so opening a record produced one line per
- * event. One call per distinct day, kept for the life of the control, is the
- * same answer with the noise bounded to the days that carry events. The day
- * is the UTC date, so on a DST transition day the hour or two around the
- * switch can be read with the neighbouring offset — the same tolerance the
- * platform's own bare call has for the whole half-year.
+ * event. One call per distinct **hour**, kept for the life of the control,
+ * is the same answer with the noise bounded to the hours that carry events.
+ *
+ * Per hour since 0.3.0, per day before it. The test form's user turned out
+ * to be in a zone with daylight saving (US Central, measured 2026-10-04 —
+ * SPEC.md H6), and a cache keyed by the UTC day hands every instant of that
+ * day the offset of the first one asked: on a transition day that is up to
+ * five hours read with the neighbouring offset. A month view never shows it;
+ * an hour grid draws those events an hour from where they are.
  */
 function userOffsetOf(
     context: ComponentFramework.Context<IInputs>,
@@ -170,7 +180,7 @@ function userOffsetOf(
         const read = settings.getTimeZoneOffsetMinutes.bind(settings);
 
         return (date: Date): number => {
-            const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}`;
+            const key = `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDate()}T${date.getUTCHours()}`;
             const known = cache.get(key);
 
             if (known !== undefined) {
@@ -253,9 +263,6 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
     private moveError: string | null = null;
 
-    // PROBE 0.2.5 — the context of the latest pass, so the probe never reads a dead dataset.
-    private latestContext: ComponentFramework.Context<IInputs> | null = null;
-
     public init(
         context: ComponentFramework.Context<IInputs>,
         notifyOutputChanged: () => void,
@@ -275,13 +282,6 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
         this.applyPageSize(context, dataset);
 
-        // PROBE 0.2.5
-        this.latestContext = context;
-
-        if ((dataset.sortedRecordIds ?? []).length > 0) {
-            installProbe(() => this.latestContext ?? context, () => this.latestContext?.parameters.records ?? dataset);
-        }
-
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
         const title = this.roleColumn(dataset, ROLES.title);
@@ -293,6 +293,9 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const getString = (id: string): string => context.resources.getString(id);
         const names = (context.userSettings as { dateFormattingInfo?: IProps['names'] } | undefined)?.dateFormattingInfo;
         const view = context.parameters.defaultView.raw as string | null;
+        // Off unless the maker turned it on: an installed calendar's week is untouched by the upgrade.
+        const hourGrid = context.parameters.hourGrid.raw === true;
+        const step = Number(context.parameters.slotMinutes.raw);
 
         const props: IProps = {
             rows: this.rows(dataset, start, end, title, color),
@@ -307,7 +310,12 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             canCreate: (context.parameters.allowCreate.raw ?? true) && formOpener(context) !== null,
             openOnEventClick: context.parameters.openOnEventClick.raw ?? true,
             showTimes: context.parameters.showTimes.raw ?? true,
-            defaultView: view === 'week' || view === 'timeline' ? view : 'month',
+            // `day` exists only with the hour grid; without it a maker's `day` opens the week it sits in.
+            defaultView: view === 'week' || view === 'timeline' ? view : view === 'day' ? (hourGrid ? 'day' : 'week') : 'month',
+            hourGrid,
+            slotMinutes: step === 15 || step === 60 ? step : 30,
+            allocatedHeight: context.mode.allocatedHeight > 0 ? context.mode.allocatedHeight : null,
+            loadWorkHours: hourGrid ? this.workHoursLoader(context) : null,
             weekStart: context.parameters.weekStart.raw,
             moving: [...this.moving],
             moveError: this.moveError,
@@ -330,11 +338,15 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
             today: dayKey(this.todayWall(userOffset)),
             initialDay: (context.parameters.initialDate.raw ?? '').trim(),
             onRangeChange: (first: Wall, last: Wall): void => this.applyRange(dataset, start, end, first, last),
-            onMove: (recordId: string, days: number): Promise<MoveOutcome> => this.adjustEvent(context, dataset, recordId, days, days),
+            onMove: (recordId: string, days: number): Promise<MoveOutcome> =>
+                this.adjustEvent(context, dataset, recordId, days * DAY, days * DAY),
             onResize: (recordId: string, edge: Edge, days: number): Promise<MoveOutcome> =>
-                this.adjustEvent(context, dataset, recordId, edge === 'start' ? days : 0, edge === 'end' ? days : 0),
+                this.adjustEvent(context, dataset, recordId, edge === 'start' ? days * DAY : 0, edge === 'end' ? days * DAY : 0),
+            onShiftTime: (recordId: string, startMinutes: number, endMinutes: number): Promise<MoveOutcome> =>
+                this.adjustEvent(context, dataset, recordId, startMinutes, endMinutes),
             onSelectDay: (day: Wall): void => this.selectDay(day),
-            onCreate: (day: Wall): void => this.createEvent(context, dataset, day),
+            onCreate: (day: Wall): void => this.createEvent(context, dataset, day, null),
+            onCreateAt: (start: Wall, end: Wall): void => this.createEvent(context, dataset, start, end),
             onOpenRecord: (id: string): void => this.openRecord(dataset, id),
             onLoadMore: (): void => this.loadMore(dataset),
         };
@@ -477,6 +489,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
      * (measured, `pcf-kanban-board`), so retiring against data is the only
      * honest rule.
      *
+     * **To the minute for a time, by the day for a whole day** (0.3.0). An
+     * hour grid moves 9:00 to 10:00 without changing the day, and a rule
+     * comparing days retired that override on the very next pass — the old
+     * value — and the event jumped back until the refresh. A whole-day
+     * column is written at midday and read back as a day, so its minutes
+     * never agree and only its day can.
+     *
      * Reads only. Called from `updateView`, so a mutator here would loop.
      */
     private reconcile(dataset: DataSet, start: Column | undefined, end: Column | undefined, userOffset: (date: Date) => number): void {
@@ -492,8 +511,10 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
                 continue;
             }
 
+            const agrees = (actual: Wall | null, want: Wall, allDay: boolean): boolean =>
+                actual !== null && (allDay ? dayKey(actual) === dayKey(want) : wallKey(actual) === wallKey(want));
             const actualStart = wallOf(record.getValue(start.name), this.metadata?.startBehavior ?? 'unknown', userOffset);
-            const startAgrees = actualStart !== null && dayKey(actualStart) === dayKey(wanted.start);
+            const startAgrees = agrees(actualStart, wanted.start, formatOf(start.dataType) === 'date');
 
             if (!startAgrees) {
                 continue;
@@ -506,7 +527,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
             const actualEnd = wallOf(record.getValue(end.name), this.metadata?.endBehavior ?? 'unknown', userOffset);
 
-            if (actualEnd !== null && dayKey(actualEnd) === dayKey(wanted.end)) {
+            if (agrees(actualEnd, wanted.end, formatOf(end.dataType) === 'date')) {
                 this.pending.delete(id);
             }
         }
@@ -617,6 +638,34 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
                 });
     }
 
+    /**
+     * A function the component can call for the user's working day, or
+     * `null` where there is nobody to ask — no Web API, a canvas app.
+     *
+     * `usersettings` through `webAPI`, one row by the user's id: measured
+     * 2026-10-04 (SPEC.md H5) — 163–254 ms, `workdaystarttime` `"08:00"`
+     * and `workdaystoptime` `"17:00"` as strings. Any refusal or odd value
+     * resolves to 08:00–17:00 rather than failing: the working day decides
+     * where the grid opens and what is shaded, nothing more. Inside an
+     * executor for the reason `metadataLoader` gives — a host that throws
+     * from the call rather than rejecting.
+     */
+    private workHoursLoader(context: ComponentFramework.Context<IInputs>): (() => Promise<{ start: number; end: number }>) | null {
+        const api = context.webAPI;
+        const id = bareGuid((context.userSettings as { userId?: unknown } | undefined)?.userId);
+
+        if (typeof api?.retrieveMultipleRecords !== 'function' || id === null || !modelDrivenHost(context)) {
+            return null;
+        }
+
+        return (): Promise<{ start: number; end: number }> =>
+            new Promise<ComponentFramework.WebApi.RetrieveMultipleResponse>((resolve) =>
+                resolve(api.retrieveMultipleRecords('usersettings', `?$select=workdaystarttime,workdaystoptime&$filter=systemuserid eq ${id}`)),
+            )
+                .then((result) => workHoursOf(result.entities[0]))
+                .catch(() => DEFAULT_WORK_HOURS);
+    }
+
     /** The day the user chose, as an output a canvas app can filter on. */
     private selectDay(day: Wall): void {
         const key = dayKey(day);
@@ -630,10 +679,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     }
 
     /**
-     * Move an event's ends by whole days, optimistically.
+     * Move an event's ends, optimistically — by minutes since 0.3.0, a day
+     * being 1,440 of them.
      *
-     * A move is both ends by the same days; a resize is one end and `0` for
-     * the other, and writes only the column that moved. An end that was
+     * A move is both ends by the same amount; a resize is one end and `0` for
+     * the other, and writes only the column that moved. The month, week and
+     * timeline move by whole days, which go through `shiftDays` exactly as
+     * before; the hour grid moves by its step, through `shiftMinutes`. An end that was
      * empty and is resized is given one, measured from the start — the
      * user dragged the right edge of a one-day bar, and that is what it
      * means. An end resized to before its start is refused here as well as
@@ -654,20 +706,20 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         context: ComponentFramework.Context<IInputs>,
         dataset: DataSet,
         recordId: string,
-        startDays: number,
-        endDays: number,
+        startMinutes: number,
+        endMinutes: number,
     ): Promise<MoveOutcome> {
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
         const title = this.roleColumn(dataset, ROLES.title);
         const record = dataset.records[recordId];
 
-        if (!start || !record || (startDays === 0 && endDays === 0) || !this.canWrite(context, dataset)) {
+        if (!start || !record || (startMinutes === 0 && endMinutes === 0) || !this.canWrite(context, dataset)) {
             return Promise.resolve(NOT_SENT);
         }
 
         // A resize needs an end column to write; without one the timeline never offers it.
-        if (startDays !== endDays && !end) {
+        if (startMinutes !== endMinutes && !end) {
             return Promise.resolve(NOT_SENT);
         }
 
@@ -682,10 +734,16 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         }
 
         const fromEnd = current ? current.end : end ? wallOf(record.getValue(end.name), endBehavior, userOffset) : null;
-        const toStart = shiftDays(fromStart, startDays);
-        const toEnd = endDays === 0 ? fromEnd : shiftDays(fromEnd ?? fromStart, endDays);
+        const shift = (wall: Wall, minutes: number): Wall =>
+            minutes % DAY === 0 ? shiftDays(wall, minutes / DAY) : shiftMinutes(wall, minutes);
+        const toStart = shift(fromStart, startMinutes);
+        // A move of an event with no end leaves it with none; only a resize gives it one, measured from its start.
+        const toEnd = endMinutes === 0 || (fromEnd === null && startMinutes === endMinutes)
+            ? fromEnd
+            : shift(fromEnd ?? fromStart, endMinutes);
 
-        if (toEnd && compareDay(toEnd, toStart) < 0) {
+        // To the minute: an hour grid can drag an end above its start without leaving the day.
+        if (toEnd && compareWall(toEnd, toStart) < 0) {
             return Promise.resolve(NOT_SENT);
         }
 
@@ -703,11 +761,11 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
         const writes: { column: string; wall: Wall; behavior: Behavior; allDay: boolean }[] = [];
 
-        if (startDays !== 0) {
+        if (startMinutes !== 0) {
             writes.push({ column: start.name, wall: toStart, behavior: startBehavior, allDay: startAllDay });
         }
 
-        if (end && toEnd && endDays !== 0) {
+        if (end && toEnd && endMinutes !== 0) {
             writes.push({ column: end.name, wall: toEnd, behavior: endBehavior, allDay: endAllDay });
         }
 
@@ -787,18 +845,25 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
     }
 
     /**
-     * Open the quick create form for a new event on a day, and report the
-     * row it made.
+     * Open the quick create form for a new event on a day — or, from the
+     * hour grid, at a time with an end — and report the row it made.
      *
      * The day goes as a **form parameter** — the second argument, typed
      * `{ [key: string]: string }` — which is how a quick create arrives with
      * a column already set. `createFromEntity` seeds the parent so the row
      * lands in this subgrid. A dismissed form resolves
      * `{ savedEntityReference: null }`, so every read below is optional.
+     *
+     * **A slot sends both columns, as `yyyy-MM-ddTHH:mm:00`** (0.3.0):
+     * measured on the quick create, a second date parameter in one call is
+     * honoured, and that spelling is read as the user's wall clock whatever
+     * the user's patterns (SPEC.md H3). The day's **+** keeps the short
+     * date it has always sent; the end is only sent where the role is bound.
      */
-    private createEvent(context: ComponentFramework.Context<IInputs>, dataset: DataSet, day: Wall): void {
+    private createEvent(context: ComponentFramework.Context<IInputs>, dataset: DataSet, day: Wall, endAt: Wall | null): void {
         const open = formOpener(context);
         const start = this.roleColumn(dataset, ROLES.start);
+        const end = this.roleColumn(dataset, ROLES.end);
         const names = (context.userSettings as { dateFormattingInfo?: IProps['names'] } | undefined)?.dateFormattingInfo;
 
         if (!open || !start) {
@@ -806,6 +871,14 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         }
 
         this.selectDay(day);
+
+        const parameters: Record<string, string> = endAt
+            ? { [start.name]: formParameterTime(day) }
+            : { [start.name]: formParameterDay(day, names) };
+
+        if (endAt && end) {
+            parameters[end.name] = formParameterTime(endAt);
+        }
 
         const parent = parentReference(context);
         const options: Record<string, unknown> = {
@@ -818,7 +891,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         }
 
         void Promise.resolve()
-            .then(() => open(options, { [start.name]: formParameterDay(day, names) }))
+            .then(() => open(options, parameters))
             .then((result) => {
                 const saved = (result as { savedEntityReference?: { id?: unknown }[] | null } | undefined)
                     ?.savedEntityReference;

@@ -169,12 +169,17 @@
         return {
             isRTL: o.rtl,
             languageId: 1033,
+            userId: o.userId,
             getTimeZoneOffsetMinutes: function (date) {
                 // Logged, because the call is not free on every tenant: a zone with no
                 // DST rule on file for the year logs a platform error per call, so a
                 // suite can assert a control asks once per day rather than per event.
                 if (log) {
                     log('userSettings.getTimeZoneOffsetMinutes', date instanceof Date ? 'dated' : 'bare');
+                }
+
+                if (typeof zone === 'function') {
+                    return zone(date instanceof Date ? date : new Date(Date.UTC(new Date().getFullYear(), 0, 1, 12)));
                 }
 
                 if (typeof zone === 'number') {
@@ -231,6 +236,12 @@
         CalendarView_TimelineEvents: "Events",
         CalendarView_NoEvents: "No events in this month.",
         CalendarView_ReadOnly: "This host cannot write to the record.",
+        View_Day: "Day",
+        CalendarView_AllDay: "All day",
+        CalendarView_MoveEarlierMinutes: "{0} minutes earlier",
+        CalendarView_MoveLaterMinutes: "{0} minutes later",
+        CalendarView_EndEarlierMinutes: "End {0} minutes earlier",
+        CalendarView_EndLaterMinutes: "End {0} minutes later",
     };
     var HOSTS = {
         'model-driven': { label: 'model-driven form', publishesTheme: true },
@@ -296,8 +307,20 @@
          * not the machine's. A calendar shows one day per event, and a
          * control reading the browser's zone puts an evening appointment on
          * the wrong day for that user without anything failing.
+         *
+         * **A function of the date** is a zone with daylight saving — the
+         * test form's user is one (US Central, measured 2026-10-04: −300 in
+         * summer, −360 from November). The dated call answers it for that
+         * instant; the bare call answers it for 1 January, the standard
+         * offset, which is what the platform's bare call answered there.
          */
         userTimeZoneOffset: null,
+        /**
+         * `userSettings.userId`, braced and upper-case as the field rig spells
+         * it. What a control reads `usersettings` by — Calendar View's hour
+         * grid reads the user's working day there (SPEC.md H5).
+         */
+        userId: '{00000000-0000-0000-0000-0000000000AA}',
         /**
          * `userSettings.dateFormattingInfo` — the names and patterns a date
          * control draws from. `{}` is the en-US shape below; an object here is
@@ -1675,8 +1698,9 @@
              * otherwise in the machine's — which is the same thing on every
              * host whose user sits where the browser does.
              */
-            if (typeof o.userTimeZoneOffset === 'number') {
-                var shifted = new Date(date.getTime() + o.userTimeZoneOffset * 60000);
+            if (typeof o.userTimeZoneOffset === 'number' || typeof o.userTimeZoneOffset === 'function') {
+                var zoneNow = typeof o.userTimeZoneOffset === 'function' ? o.userTimeZoneOffset(date) : o.userTimeZoneOffset;
+                var shifted = new Date(date.getTime() + zoneNow * 60000);
                 var uMonth = String(shifted.getUTCMonth() + 1);
                 var uDay = String(shifted.getUTCDate());
 

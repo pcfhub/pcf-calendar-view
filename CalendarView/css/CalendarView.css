@@ -757,9 +757,337 @@ button.CalendarView-eventTitle:focus-visible {
     display: none;
 }
 
+/* ------------------------------------------------------------ hour grid */
+
+/*
+  0.3.0: Day and Week against the hours. The root stays a block the form
+  sizes; the scrolling box is the control's own, a fixed height set by the
+  component (a subgrid allocates none — SPEC.md H7), and everything that has
+  to stay in view while the hours scroll is sticky inside it: the day heads
+  and the all-day row at the top, the hour labels at the start.
+
+  Every rule here names three classes. The week list's own rules for the
+  same elements are two-class (`.CalendarView--week .CalendarView-eventTitle`)
+  and the hour grid is also `CalendarView--week`; a tie would be decided by
+  order in this file, which is the trap that drew two gauges at once on
+  pcf-number-slider.
+*/
+.CalendarView .CalendarView-hours {
+    --CalendarView-hoursHead: 44px;
+    --CalendarView-hoursRow: 22px;
+    --CalendarView-hourLine: var(--colorNeutralStroke2, #e0e0e0);
+    --CalendarView-halfLine: var(--colorNeutralStroke3, #f0f0f0);
+    border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    background-color: var(--colorNeutralBackground1, #ffffff);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursScroll {
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+/* The day tracks' minimum is what overflows a narrow control into a sideways scroll, as on the timeline. */
+.CalendarView .CalendarView-hours .CalendarView-hoursGrid {
+    display: grid;
+    grid-template-rows: var(--CalendarView-hoursHead) auto auto;
+    width: 100%;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursCorner,
+.CalendarView .CalendarView-hours .CalendarView-hoursHead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-sizing: border-box;
+    height: var(--CalendarView-hoursHead);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+    border-bottom: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursCorner {
+    left: 0;
+    z-index: 5;
+    border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursHead {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacingHorizontalXS, 4px);
+    padding: 0 var(--spacingHorizontalXXS, 2px);
+    border-inline-start: 1px solid var(--colorNeutralStroke3, #f0f0f0);
+    font-size: var(--fontSizeBase200, 12px);
+    color: var(--colorNeutralForeground2, #424242);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursWeekday {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: clip;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursHead.is-today .CalendarView-dayNumber {
+    color: var(--colorNeutralForegroundOnBrand, #ffffff);
+    background-color: var(--colorBrandBackground, #0f6cbd);
+    font-weight: var(--fontWeightSemibold, 600);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursHead.is-selected .CalendarView-dayNumber {
+    box-shadow: inset 0 0 0 2px var(--colorBrandStroke1, #0f6cbd);
+    font-weight: var(--fontWeightSemibold, 600);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursHead:hover .CalendarView-dayAdd,
+.CalendarView .CalendarView-hours .CalendarView-hoursHead:focus-within .CalendarView-dayAdd {
+    opacity: 1;
+}
+
+/* The all-day row sticks under the heads, so a whole-day event stays in view while the hours scroll. */
+.CalendarView .CalendarView-hours .CalendarView-allDayLabel,
+.CalendarView .CalendarView-hours .CalendarView-allDay {
+    position: sticky;
+    top: var(--CalendarView-hoursHead);
+    z-index: 3;
+    box-sizing: border-box;
+    min-height: calc(var(--CalendarView-hoursRow) + 6px);
+    background-color: var(--colorNeutralBackground1, #ffffff);
+    border-bottom: 2px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-allDayLabel {
+    left: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-inline-end: var(--spacingHorizontalXS, 4px);
+    border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+    font-size: var(--fontSizeBase100, 10px);
+    color: var(--colorNeutralForeground3, #616161);
+    text-align: end;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-allDay {
+    display: grid;
+    grid-auto-rows: var(--CalendarView-hoursRow);
+    row-gap: 2px;
+    padding: 2px 0;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-allDayBar {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--spacingHorizontalXXS, 2px);
+    min-width: 0;
+    margin: 0 2px;
+    padding: 0 var(--spacingHorizontalXS, 4px);
+    border-inline-start: 3px solid var(--colorBrandStroke1, #0f6cbd);
+    border-radius: var(--borderRadiusSmall, 2px);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+    font-size: var(--fontSizeBase200, 12px);
+    line-height: var(--CalendarView-hoursRow);
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-allDayBar.is-allDay {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-allDayBar.is-continued {
+    border-inline-start-color: transparent;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    margin-inline-start: 0;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-allDayBar.is-continuing {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+    margin-inline-end: 0;
+}
+
+/* The hour labels: sticky at the start so they stay while a week scrolls sideways, each centred on its line. */
+.CalendarView .CalendarView-hours .CalendarView-hoursAxis {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    box-sizing: border-box;
+    background-color: var(--colorNeutralBackground1, #ffffff);
+    border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursLabel {
+    position: absolute;
+    inset-inline-end: var(--spacingHorizontalXS, 4px);
+    transform: translateY(-50%);
+    font-size: var(--fontSizeBase100, 10px);
+    color: var(--colorNeutralForeground3, #616161);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/*
+  A day: 24 hours tall, an hour line every 48px and a fainter half-hour one,
+  drawn as the background so they cost no elements and sit under everything.
+*/
+.CalendarView .CalendarView-hours .CalendarView-hoursDay {
+    position: relative;
+    box-sizing: border-box;
+    border-inline-start: 1px solid var(--colorNeutralStroke3, #f0f0f0);
+    background-image:
+        linear-gradient(to bottom, var(--CalendarView-hourLine) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--CalendarView-halfLine) 1px, transparent 1px);
+    background-size: 100% 48px, 100% 48px;
+    background-position: 0 0, 0 24px;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursDay.is-today {
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+}
+
+/* Outside the user's working day: a tint, so the day still reads as a day and the hours that matter stand out. */
+.CalendarView .CalendarView-hours .CalendarView-hoursOff {
+    position: absolute;
+    inset-inline: 0;
+    background-color: var(--colorNeutralBackground2, #fafafa);
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+/* The free part of a day, under the events: a press here creates at that slot. */
+.CalendarView .CalendarView-hours .CalendarView-hoursSlots {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursSlots.is-creatable {
+    cursor: cell;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursNow {
+    position: absolute;
+    inset-inline: 0;
+    z-index: 2;
+    height: 0;
+    border-top: 2px solid var(--colorPaletteRedBorder2, #c50f1f);
+    pointer-events: none;
+}
+
+/*
+  An event: positioned by the component (top and height from its times, its
+  lane's share of the width), the option colour as its leading edge, the
+  same chip the month draws laid in its hours.
+*/
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent {
+    position: absolute;
+    z-index: 1;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
+    gap: 0 var(--spacingHorizontalXXS, 2px);
+    min-width: 0;
+    padding: 1px var(--spacingHorizontalXXS, 2px) 1px var(--spacingHorizontalXS, 4px);
+    border-inline-start: 3px solid var(--colorBrandStroke1, #0f6cbd);
+    border-radius: var(--borderRadiusMedium, 4px);
+    background-color: var(--colorBrandBackground2, #ebf3fc);
+    box-shadow: 0 0 0 1px var(--colorNeutralBackground1, #ffffff);
+    font-size: var(--fontSizeBase200, 12px);
+    line-height: 16px;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    cursor: grab;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent .CalendarView-eventTitle {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-height: none;
+}
+
+/* With room for two lines or more, the time sits on a line above the title and the title wraps. */
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-roomy .CalendarView-eventTitle {
+    white-space: normal;
+    flex-basis: calc(100% - 24px);
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-roomy .CalendarView-eventTime {
+    display: block;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent .CalendarView-eventMenu {
+    min-width: 18px;
+    height: 18px;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent:hover .CalendarView-eventMenu,
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent:focus-within .CalendarView-eventMenu,
+.CalendarView .CalendarView-hours .CalendarView-allDayBar:hover .CalendarView-eventMenu,
+.CalendarView .CalendarView-hours .CalendarView-allDayBar:focus-within .CalendarView-eventMenu {
+    opacity: 1;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-moving,
+.CalendarView .CalendarView-hours .CalendarView-allDayBar.is-moving {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-held,
+.CalendarView .CalendarView-hours .CalendarView-allDayBar.is-held {
+    z-index: 3;
+    box-shadow: var(--shadow8, 0 4px 8px rgba(0, 0, 0, 0.14));
+    cursor: grabbing;
+}
+
+.CalendarView .CalendarView-hours.is-dragging {
+    cursor: grabbing;
+}
+
+/* The bottom edge resizes the end: 6px tall, a row-resize cursor, a grip only on hover. */
+.CalendarView .CalendarView-hours .CalendarView-hoursHandle {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 6px;
+    cursor: row-resize;
+    touch-action: none;
+}
+
+.CalendarView .CalendarView-hours .CalendarView-hoursEvent:hover .CalendarView-hoursHandle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 2px;
+    width: 16px;
+    height: 2px;
+    margin-left: -8px;
+    border-radius: 1px;
+    background-color: var(--colorNeutralForeground3, #616161);
+}
+
+/* Narrow: a shorter axis; the days keep their minimum and the grid scrolls sideways inside its box. */
+.CalendarView--narrow .CalendarView-hours {
+    --CalendarView-hoursAxis: 44px;
+}
+
 @media (forced-colors: active) {
     .CalendarView-event,
-    .CalendarView-tlBar {
+    .CalendarView-tlBar,
+    .CalendarView-hoursEvent,
+    .CalendarView-allDayBar {
         border: 1px solid CanvasText;
         border-inline-start-width: 3px;
     }
