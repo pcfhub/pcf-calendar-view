@@ -34,6 +34,12 @@ active calls print MATCH or MISMATCH against what the control expects.
 After each write: `restore(id)` puts the record back as it was before the
 probe touched it.
 
+**Every answer went the right way and nothing is cut.** One more thing the
+first records showed (P1): *Birthday* ends at `04:30Z` and starts at
+`05:00Z` — an end before its start, saved by hand on the form. The month
+view never minded; an hour grid would draw it with a negative height, so an
+end before the start is drawn as the start alone.
+
 ## 0.2.4 — a move keeps what Load more brought in
 
 `pcf-kanban-board` found it on a form (2026-09-29, its 0.4.1): a dataset
