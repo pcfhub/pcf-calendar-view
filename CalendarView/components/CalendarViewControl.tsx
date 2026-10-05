@@ -507,7 +507,18 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
             <div
                 ref={rootRef}
                 className={`CalendarView CalendarView--${view}${narrow ? ' CalendarView--narrow' : ''}`}
-                style={props.allocatedWidth ? { maxWidth: `${props.allocatedWidth}px` } : undefined}
+                /*
+                 * The host's width, outright — max-width 100% in the stylesheet
+                 * keeps it inside a narrower parent. A form cell sizes itself
+                 * to its content, and the hour grid's content is absolutely
+                 * positioned blocks: with only a max-width here the root
+                 * shrank to the grid's minimum, 56px of labels and seven 72px
+                 * days — 600px of a 1,028px form, while the month and the
+                 * timeline, whose chips have long text, filled it (walkthrough,
+                 * 2026-10-05; `?shrink=1` in the preview: 675 against 1,028).
+                 * pcf-chart-view met it first (its Z4).
+                 */
+                style={props.allocatedWidth ? { width: `${props.allocatedWidth}px` } : undefined}
             >
                 {content}
             </div>
@@ -1448,7 +1459,17 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
         end: number,
         width: number,
     ): void => {
-        if (!interactive || pointer.button !== 0 || width <= 0) {
+        /*
+         * **Only a press that starts inside the block's own DOM.** The ⋯ menu
+         * is a Fluent popover in a portal, and React bubbles a portal's events
+         * through the *component* tree — so a press on "30 minutes later"
+         * reached this handler, which took pointer capture on the block, and
+         * the item never got its click: the menu opened and nothing it offered
+         * worked (the form walkthrough's W7, 2026-10-05; reproduced in the
+         * hub's harness with real mouse input). The DOM says where the press
+         * really was.
+         */
+        if (!interactive || pointer.button !== 0 || width <= 0 || !pointer.currentTarget.contains(pointer.target as Node)) {
             return;
         }
 
@@ -1727,7 +1748,7 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
                             <div
                                 key={dayKey(day)}
                                 role="gridcell"
-                                className={`CalendarView-hoursDay${isToday ? ' is-today' : ''}${dayKey(day) === props.selectedKey ? ' is-selected' : ''}`}
+                                className={`CalendarView-hoursDay${isToday && days.length > 1 ? ' is-today' : ''}${dayKey(day) === props.selectedKey ? ' is-selected' : ''}`}
                                 aria-label={`${dayLabel(day)}, ${getString('CalendarView_EventCount').replace('{0}', String(blocks.length))}`}
                                 data-day={dayKey(day)}
                                 style={{ ...at(3, column + 2), height: `${24 * HOUR_PX}px` }}
@@ -1815,7 +1836,17 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
                                                 column has the width for both on a line. The tooltip
                                                 keeps both everywhere.
                                             */}
-                                            {title(event, size !== 'short' || days.length === 1 ? time : null, time ? `${time} ${event.title}` : event.title)}
+                                            {/*
+                                                Three or more side by side in a week column leave a lane
+                                                too narrow for a time and a title: the form drew "2 / P /
+                                                – / 4" a character to a line (walkthrough, 2026-10-05).
+                                                The title alone then; the tooltip keeps the time.
+                                            */}
+                                            {title(
+                                                event,
+                                                (size !== 'short' && (block.lanes < 3 || days.length === 1)) || (days.length === 1 && size === 'short') ? time : null,
+                                                time ? `${time} ${event.title}` : event.title,
+                                            )}
                                             {event.badge && roomy && <span className="CalendarView-eventBadge">{event.badge}</span>}
                                             {menu(event, block.end - block.start, busy, true)}
                                             {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}

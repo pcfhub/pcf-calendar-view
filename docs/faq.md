@@ -71,6 +71,17 @@ Options**. Where that cannot be read — a canvas app, a user who cannot read
 their own settings — it opens at 8:00 AM and shades outside 8:00 AM–5:00 PM.
 Scroll for the rest of the day; it is all there.
 
+## The red line is an hour off my computer's clock
+
+The line marks *now* in your **Dataverse** time zone — the one in **Personal
+Options** — because every event on the calendar is placed in that zone too,
+as the form's own date fields are. When the computer's clock is set to a
+different zone, the two disagree: a Windows clock on Central America time
+(UTC−6 all year) and Personal Options on US Central (UTC−5 in summer) are an
+hour apart from March to November. The line agrees with the events either
+way; to make it agree with the clock as well, set Personal Options to the
+computer's zone, or the computer to yours.
+
 ## Why is an event in the All day row when it has times?
 
 It crosses midnight. The hour grid draws one day per column, so an event

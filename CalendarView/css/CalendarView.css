@@ -1032,13 +1032,13 @@ button.CalendarView-eventTitle:focus-visible {
 /* With room for two lines or more, the time sits on a line above the title and the title wraps. */
 .CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-roomy .CalendarView-eventTitle {
     white-space: normal;
-    flex-basis: calc(100% - 24px);
+    flex-basis: 100%;
 }
 
 /* A medium block: the start time in front of a title that wraps onto the second line. */
 .CalendarView .CalendarView-hours .CalendarView-hoursEvent.is-medium .CalendarView-eventTitle {
     white-space: normal;
-    flex-basis: calc(100% - 24px);
+    flex-basis: 100%;
 }
 
 /* The range wraps rather than clips: "8:00 AM – 10:00 AM" is wider than a day column on most forms. */
@@ -1047,9 +1047,20 @@ button.CalendarView-eventTitle:focus-visible {
     white-space: normal;
 }
 
+/*
+  The menu floats over the block's top corner rather than taking a place in
+  its flow. As a flex item it wrapped under the title in a block of two lines
+  and was clipped by the block — no ⋯ to press on most events (found driving
+  the hub's harness, 2026-10-05). On the block's own ground, so the title it
+  covers on hover does not show through.
+*/
 .CalendarView .CalendarView-hours .CalendarView-hoursEvent .CalendarView-eventMenu {
+    position: absolute;
+    top: 1px;
+    inset-inline-end: 1px;
     min-width: 18px;
     height: 18px;
+    background-color: var(--colorBrandBackground2, #ebf3fc);
 }
 
 .CalendarView .CalendarView-hours .CalendarView-hoursEvent:hover .CalendarView-eventMenu,

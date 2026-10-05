@@ -90,9 +90,12 @@ page without turning it. The platform caps a page at 250.
 
 Moving or resizing an event keeps every event **Load more** has brought in
 (from 0.2.4; before it, each move started the range again at its first page).
-**Creating an event, or stepping to another range, still does**: both have to
-fetch, and a fetch starts at the first page. Press **Load more** again to
-bring the rest back.
+**Stepping to another range still does**: it has to fetch, and a fetch starts
+at the first page. Press **Load more** again to bring the rest back.
+**Creating an event** fetches too, and from 0.3.1 the calendar then loads
+pages until the event you just saved is on screen — up to ten of them — so
+it never has to be found with **Load more**. On a subgrid of a few rows a
+week, set **Events per fetch** higher (50 shows a busy month at once).
 
 ## Behaviour is read from metadata, and only where metadata can be read
 

@@ -263,6 +263,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
     private moveError: string | null = null;
 
+    /**
+     * A record the quick create just made, followed into view: the id, and
+     * how many rows were loaded when the last page was asked for (so one pass
+     * asks once). See `followCreated`.
+     */
+    private following: { id: string; askedAt: number; asks: number } | null = null;
+
     public init(
         context: ComponentFramework.Context<IInputs>,
         notifyOutputChanged: () => void,
@@ -289,6 +296,7 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const userOffset = userOffsetOf(context, this.offsetByDay);
 
         this.reconcile(dataset, start, end, userOffset);
+        this.followCreated(dataset);
 
         const getString = (id: string): string => context.resources.getString(id);
         const names = (context.userSettings as { dateFormattingInfo?: IProps['names'] } | undefined)?.dateFormattingInfo;
@@ -902,12 +910,49 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
                 }
 
                 this.createdRecordId = id;
+                this.following = { id, askedAt: -1, asks: 0 };
                 this.notifyOutputChanged();
                 dataset.refresh();
             })
             .catch((error: unknown) => {
                 console.warn('[CalendarView] create failed', error);
             });
+    }
+
+    /**
+     * Keep loading pages until the record the quick create made is on screen.
+     *
+     * A create ends with a refresh, and a refresh starts the view at its first
+     * page — so on a subgrid of four rows a week, the event just saved was
+     * not drawn until **Load more** was pressed (the form walkthrough's W5,
+     * 2026-10-05). Asked from `updateView`, which is where the pages arrive:
+     * one `loadNextPage()` per pass that has more rows than the last asked
+     * at, never while loading, at most ten, and done as soon as the record is
+     * loaded or there is nothing more to load. `loadNextPage()` with no
+     * argument accumulates (measured), so nothing already loaded is lost.
+     */
+    private followCreated(dataset: DataSet): void {
+        const follow = this.following;
+
+        if (!follow) {
+            return;
+        }
+
+        const loaded = (dataset.sortedRecordIds ?? []).map((id) => id.toLowerCase());
+
+        if (loaded.includes(follow.id) || follow.asks >= 10) {
+            this.following = null;
+
+            return;
+        }
+
+        if (dataset.loading || !dataset.paging.hasNextPage || loaded.length <= follow.askedAt) {
+            return;
+        }
+
+        follow.askedAt = loaded.length;
+        follow.asks += 1;
+        dataset.paging.loadNextPage();
     }
 
     /** A rejected platform call is not reliably an `Error`; take a message where there is one. */

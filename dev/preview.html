@@ -39,6 +39,8 @@
     ?move=0                hide the move affordances
     ?width=700             the width the host allocates (default: the window's)
     ?dark=1                a host publishing a dark theme (the stub's small token set)
+    ?shrink=1              a shrink-to-fit host, as a form section is: #root sizes to its content
+                           (pcf-chart-view's switch; the hour grid shrank to ~600px on the form, 5 Oct)
 -->
 <html lang="en">
 <head>
@@ -116,6 +118,10 @@
 
             return raw === null || raw === '' ? null : Number(raw);
         };
+
+        if (params.get('shrink') === '1') {
+            root.style.display = 'inline-block';
+        }
 
         var dark = params.get('dark') === '1';
 

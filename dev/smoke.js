@@ -1243,6 +1243,63 @@ check('the same for initialDate', switched.props().initialDay === '2026-03-10' &
 
     check('on the day the clocks change, both sides of it are placed by their own offset', fallBlocks.n1 && fallBlocks.n1.start === 30 && fallBlocks.n2 && fallBlocks.n2.start === 540, JSON.stringify(fallBlocks));
 
+    /* ------------------------------------------------------ 0.3.1: the walkthrough's findings */
+
+    /*
+     * The root takes the host's width outright. With only a max-width the
+     * form's shrink-to-fit cell sized it to the hour grid's minimum — 600px of
+     * a 1,028px form (W, 2026-10-05).
+     */
+    const wide = hours({ inputs: HOURS, userTimeZoneOffset: -300, width: 1028 });
+
+    check('the root is given the host\'s width, not only capped at it', /class="CalendarView CalendarView--week[^"]*" style="width:1028px"/.test(markup(wide)), (/class="CalendarView CalendarView--week[^"]*"[^>]*>/.exec(markup(wide)) || [''])[0]);
+
+    /*
+     * A created event is followed into view. The create ends with a refresh,
+     * which starts the view at its first page; on a four-row subgrid the
+     * event just saved was not drawn until Load more (W5, 2026-10-05). The
+     * control keeps asking for the next page until the record is loaded.
+     */
+    const GUID = (n) => `00000000-0000-0000-0000-00000000000${n}`;
+    const crowdedWeek = [1, 2, 3, 4, 5, 6].map((n) => ({
+        id: GUID(n),
+        values: { subject: `Meeting ${n}`, scheduledstart: `2026-09-1${n}T14:00:00Z`, scheduledend: `2026-09-1${n}T15:00:00Z`, prioritycode: 1 },
+    }));
+    const follower = hours({
+        inputs: { ...HOURS, initialDate: '2026-09-11' },
+        userTimeZoneOffset: -300,
+        records: crowdedWeek,
+        pageSize: 2,
+        openFormReturns: { savedEntityReference: [{ id: `{${GUID(6).toUpperCase()}}`, entityType: 'appointment', name: 'Meeting 6' }] },
+    }, W(2026, 9, 6), W(2026, 9, 19));
+
+    const beforeCreate = follower.props().rows.map((row) => row.id);
+
+    follower.props().onCreateAt({ year: 2026, month: 8, day: 16, hour: 9, minute: 0 }, { year: 2026, month: 8, day: 16, hour: 9, minute: 30 });
+    await flush();
+
+    for (let pass = 0; pass < 6; pass += 1) {
+        follower.settle();
+        await flush();
+    }
+
+    const afterCreate = follower.props().rows.map((row) => row.id);
+    const pagesAsked = follower.calls().filter((call) => call.startsWith('loadNextPage')).length;
+
+    check('the first page did not hold the event about to be created', !beforeCreate.includes(GUID(6)), beforeCreate.join(','));
+    check('after the create the calendar loads pages until the new event is on screen', afterCreate.includes(GUID(6)), `${afterCreate.length} rows: ${afterCreate.join(',')}`);
+    check('and stops there', pagesAsked >= 1 && pagesAsked <= 3, `${pagesAsked} loadNextPage calls`);
+
+    const dismissed = hours({ inputs: HOURS, userTimeZoneOffset: -300, records: crowdedWeek, pageSize: 2 }, W(2026, 9, 6), W(2026, 9, 19));
+
+    dismissed.props().onCreateAt({ year: 2026, month: 8, day: 16, hour: 9, minute: 0 }, { year: 2026, month: 8, day: 16, hour: 9, minute: 30 });
+    await flush();
+    dismissed.settle();
+    await flush();
+    dismissed.settle();
+
+    check('a quick create dismissed without saving loads nothing more', !dismissed.calls().some((call) => call.startsWith('loadNextPage')), dismissed.calls().filter((call) => call.startsWith('loadNextPage')).join(' '));
+
     /* ------------------------------------------------------ metadata */
 
     const withMeta = bind({});

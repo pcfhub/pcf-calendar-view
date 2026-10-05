@@ -77,15 +77,31 @@ one another — the overlap case, already in the data.
 
 | | Look at | Right way | Measured |
 | --- | --- | --- | --- |
-| W1 | Week, the week of 5 October | Opens at 7:30, hours down the side; events at their times; *Check bug* (17 → 26 Sep) is not here, but a week it covers shows it in **All day** | |
-| W2 | The three *create* events on 8 Oct | Three lanes side by side, each a third of the column | |
-| W3 | Drag one an hour later; then reload the form | Lands at 3:30–4:30 and stays there after the reload — one save, both columns | |
-| W4 | Drag another's bottom edge down 30 minutes | End 4:00 PM; Start untouched | |
-| W5 | Press a free slot, Tuesday about 10:15 AM | Quick create: Starts 10:00 AM, Ends 10:30 AM; Save — the event appears there | |
-| W6 | **Day**, then ‹ › and **Today** | One day at full width; steps a day at a time; the heading names the day | |
-| W7 | An event's **⋯**: *30 minutes later*, then *End 30 minutes earlier* | Each writes; the second only End | |
-| W8 | The *Kind ≠ Meeting* subgrid, grid off | Its week is the list it was in 0.2.4 | |
-| W9 | A narrow section, or the phone | The days scroll sideways inside the box; the hour labels are whole | |
+| W1 | Week, the week of 5 October | Opens at 7:30, hours down the side; events at their times; *Check bug* (17 → 26 Sep) is not here, but a week it covers shows it in **All day** | **Passed** 2026-10-05. |
+| W2 | The three *create* events on 8 Oct | Three lanes side by side, each a third of the column | **Passed** 2026-10-05 — three lanes; but at the width the form gave (below) each lane drew its time a character to a line ("2 / P / – / 4"): 0.3.1 drops the time when three or more share a week column. |
+| W3 | Drag one an hour later; then reload the form | Lands at 3:30–4:30 and stays there after the reload — one save, both columns | **Passed** 2026-10-05. |
+| W4 | Drag another's bottom edge down 30 minutes | End 4:00 PM; Start untouched | **Passed** 2026-10-05. |
+| W5 | Press a free slot, Tuesday about 10:15 AM | Quick create: Starts 10:00 AM, Ends 10:30 AM; Save — the event appears there | **Passed, with a finding** 2026-10-05: the quick create opened on the slot and saved, but the event was not drawn — the subgrid loads 4 rows a page, the refresh after a create starts at page one, and the new row was on page two until **Load more**. 0.3.1 follows a created record into view (`followCreated`: one `loadNextPage()` per pass until it is loaded, at most ten). |
+| W6 | **Day**, then ‹ › and **Today** | One day at full width; steps a day at a time; the heading names the day | **Passed** 2026-10-05. |
+| W7 | An event's **⋯**: *30 minutes later*, then *End 30 minutes earlier* | Each writes; the second only End | **Failed** 2026-10-05: the menu opened and no item did anything. Reproduced in the hub's harness with real mouse input (CDP `Input.dispatchMouseEvent`): Fluent draws the menu in a portal, React bubbles the portal's `pointerdown` through the component tree to the block, the block took pointer capture, and the item never got its click. 0.3.1 starts a drag only for a press inside the block's own DOM — the same script then moved the event and closed the menu, on a tall block and a medium one. Found on the way: on a medium block the ⋯ wrapped under the title and was clipped — it floats over the corner now. |
+| W8 | The *Kind ≠ Meeting* subgrid, grid off | Its week is the list it was in 0.2.4 | Not run yet — the user asked what to do (2026-10-05). |
+| W9 | A narrow section, or the phone | The days scroll sideways inside the box; the hour labels are whole | Not run (no phone) — under *Not verified*. |
+
+**Two things the walkthrough asked rather than answered.** The red *now*
+line read 11:27 against a Windows clock at 10:27: it is drawn in the
+Dataverse user's zone (US Central, −300 in October — H6) like every event,
+and this browser is −360 all year; the line agrees with the events, which
+is the design, and the FAQ says how to make it agree with the clock too.
+And Week and Day took ~600px of a 1,028px form while Month and Timeline
+filled it: a form cell sizes itself to its content, the hour grid's
+content is absolutely positioned blocks, and the root carried only a
+max-width — so it shrank to the grid's minimum (56 + 7 × 72). Reproduced
+with `?shrink=1` in the preview (675 and 624 against 1,028), fixed by giving
+the root `allocatedWidth` outright with max-width 100% in the stylesheet —
+pcf-chart-view's Z4 rule — and measured 1,028 in every view after.
+Day view no longer tints its one column as today.
+
+0.3.0 was the form build; **0.3.1 is the first tag.**
 
 ## 0.2.4 — a move keeps what Load more brought in
 
