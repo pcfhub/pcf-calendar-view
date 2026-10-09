@@ -182,7 +182,7 @@ September:
 
 ## Measured — the 0.0.1 / 0.0.2 probes, 16 September 2026
 
-On the Accounts form (`cll365`), a `cll_event` subgrid: page size 4, twelve
+On the Accounts form (the test environment), a `cll_event` subgrid: page size 4, twelve
 rows, User Local `cll_starts`/`cll_ends`, a `cll_dueon` that turned out to be
 **User Local with a Date Only format**, a coloured `cll_kind` choice. The
 user's zone was UTC−5 (DST); **the browser's was UTC−6** — an hour apart,
