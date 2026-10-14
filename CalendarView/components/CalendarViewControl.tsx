@@ -48,6 +48,7 @@ import {
     weekDays,
     weekday,
 } from './calendar';
+import { useCloseWhenHidden } from '../lib/close-when-hidden/useCloseWhenHidden';
 
 /** Which end of a bar a resize takes hold of. */
 export type Edge = 'start' | 'end';
@@ -892,32 +893,63 @@ function EventChip(props: IDayProps & { event: CalendarEvent }): React.ReactElem
                 than disabled where the host cannot write.
             */}
             {props.canMove && (
-                <Menu>
-                    <MenuTrigger disableButtonEnhancement>
-                        <Button
-                            appearance="subtle"
-                            size="small"
-                            className="CalendarView-eventMenu"
-                            disabled={props.disabled || busy}
-                            aria-label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
-                        >
-                            ⋯
-                        </Button>
-                    </MenuTrigger>
-                    <MenuPopover>
-                        <MenuList>
-                            {moves.map((option) => (
-                                <MenuItem key={option.days} onClick={(): void => props.onDrop(event.id, option.days)}>
-                                    {option.label}
-                                </MenuItem>
-                            ))}
-                        </MenuList>
-                    </MenuPopover>
-                </Menu>
+                <EventMenu
+                    label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
+                    disabled={props.disabled || busy}
+                    items={moves.map((option) => ({ key: option.days, label: option.label, act: (): void => props.onDrop(event.id, option.days) }))}
+                />
             )}
 
             {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}
         </li>
+    );
+}
+
+/**
+ * An event's ⋯ menu: the keyboard path for moving it, in every view.
+ *
+ * Controlled, so it can close once its button scrolls out of view. The
+ * popover is portalled and follows the button, so a calendar or form
+ * scrolled with it open carried it over the form's header
+ * (lib/close-when-hidden/watch.ts).
+ */
+function EventMenu(props: {
+    label: string;
+    disabled: boolean;
+    items: Array<{ key: string | number; label: string; act: () => void }>;
+    /** Stop pointerdown at the button, where the view behind it starts a drag on one. */
+    holdPointer?: boolean;
+}): React.ReactElement {
+    const [open, setOpen] = React.useState(false);
+    const [button, setButton] = React.useState<HTMLElement | null>(null);
+
+    useCloseWhenHidden(button, open, () => setOpen(false));
+
+    return (
+        <Menu open={open} onOpenChange={(_event, data): void => setOpen(data.open)}>
+            <MenuTrigger disableButtonEnhancement>
+                <Button
+                    ref={setButton}
+                    appearance="subtle"
+                    size="small"
+                    className="CalendarView-eventMenu"
+                    disabled={props.disabled}
+                    aria-label={props.label}
+                    onPointerDown={props.holdPointer ? (pointer): void => pointer.stopPropagation() : undefined}
+                >
+                    ⋯
+                </Button>
+            </MenuTrigger>
+            <MenuPopover>
+                <MenuList>
+                    {props.items.map((item) => (
+                        <MenuItem key={item.key} onClick={item.act}>
+                            {item.label}
+                        </MenuItem>
+                    ))}
+                </MenuList>
+            </MenuPopover>
+        </Menu>
     );
 }
 
@@ -1188,28 +1220,11 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                                 {event.badge && <span className="CalendarView-eventBadge">{event.badge}</span>}
 
                                 {props.canMove && (
-                                    <Menu>
-                                        <MenuTrigger disableButtonEnhancement>
-                                            <Button
-                                                appearance="subtle"
-                                                size="small"
-                                                className="CalendarView-eventMenu"
-                                                disabled={props.disabled || busy}
-                                                aria-label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
-                                            >
-                                                ⋯
-                                            </Button>
-                                        </MenuTrigger>
-                                        <MenuPopover>
-                                            <MenuList>
-                                                {adjustments.map((option) => (
-                                                    <MenuItem key={option.key} onClick={option.act}>
-                                                        {option.label}
-                                                    </MenuItem>
-                                                ))}
-                                            </MenuList>
-                                        </MenuPopover>
-                                    </Menu>
+                                    <EventMenu
+                                        label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
+                                        disabled={props.disabled || busy}
+                                        items={adjustments}
+                                    />
                                 )}
 
                                 {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}
@@ -1607,29 +1622,13 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
         );
 
         return (
-            <Menu>
-                <MenuTrigger disableButtonEnhancement>
-                    <Button
-                        appearance="subtle"
-                        size="small"
-                        className="CalendarView-eventMenu"
-                        disabled={props.disabled || busy}
-                        aria-label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
-                        onPointerDown={(pointer): void => pointer.stopPropagation()}
-                    >
-                        ⋯
-                    </Button>
-                </MenuTrigger>
-                <MenuPopover>
-                    <MenuList>
-                        {options.map((option) => (
-                            <MenuItem key={option.key} onClick={option.act}>
-                                {option.label}
-                            </MenuItem>
-                        ))}
-                    </MenuList>
-                </MenuPopover>
-            </Menu>
+            <EventMenu
+                label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
+                disabled={props.disabled || busy}
+                items={options}
+                // The hour grid starts a drag on pointerdown; the button is not one.
+                holdPointer
+            />
         );
     };
 

@@ -335,6 +335,27 @@ It was checked with 0.2.3's published bundle against that harness:
 - at five events per fetch, "5 loaded — there are more in this range" and
   Load more went 5, 10, 13.
 
+## 0.3.4: a menu left open over the header
+
+pcf-lookup-search 0.3.0 was reported with its list riding up over the form's
+header after the form scrolled. An event's ⋯ menu is a Fluent `Menu`,
+portalled the same way. Measured on the test form, 2026-10-14, on 0.3.2, at
+1100×650 so the Events tab scrolls: with a month-view event's menu open, a
+scroll that put its button at y 230 (the form's scroller starts at 286) left
+the menu open at 255–389, over the header, flagged
+`data-popper-reference-hidden`.
+
+The three copies of the menu (month, timeline, hour grid) are one
+`EventMenu` now, controlled, closed through the shared
+`lib/close-when-hidden` once less than half its button is visible. A menu
+focuses its first item, and on close Fluent hands focus back to the button,
+which would scroll the form back to it (measured on the date range picker's
+first build); the hook focuses the button first, with `preventScroll`.
+Walked on 0.3.4 at 1100×650: a 40px scroll kept the menu (it flipped below
+the button); the scroll that put the button at 230 closed it, the form stayed
+at scrollTop 269, and focus was on the button. 0.3.3 was a test build, never
+released.
+
 ## Not verified
 
 - **The timeline on the phone client.** W2 was answered on the web client;
