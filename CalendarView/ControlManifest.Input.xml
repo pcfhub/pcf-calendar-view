@@ -7,7 +7,7 @@
   -->
   <control namespace="PCFHub"
            constructor="CalendarView"
-           version="0.3.4"
+           version="0.3.5"
            display-name-key="CalendarView_Name"
            description-key="CalendarView_Desc"
            control-type="virtual">
@@ -82,6 +82,27 @@
                     of-type="OptionSet"
                     usage="bound"
                     required="false" />
+
+      <!--
+        0.4.0, the timeline as a light Gantt: two lookups to the same table.
+        Parent puts a task under the task it belongs to; Depends on draws an
+        arrow from the task it waits for. Both read, never written, and both
+        optional — a calendar with neither bound is the calendar it was.
+        A lookup reads back as `{ etn, id: { guid }, name }` (SPEC.md G2).
+      -->
+      <property-set name="parentField"
+                    display-name-key="ParentField_Name"
+                    description-key="ParentField_Desc"
+                    of-type="Lookup.Simple"
+                    usage="bound"
+                    required="false" />
+
+      <property-set name="dependsOnField"
+                    display-name-key="DependsOnField_Name"
+                    description-key="DependsOnField_Desc"
+                    of-type="Lookup.Simple"
+                    usage="bound"
+                    required="false" />
     </data-set>
 
     <type-group name="dates">
@@ -120,6 +141,23 @@
       <value name="week" display-name-key="View_Week">week</value>
       <value name="day" display-name-key="View_Day">day</value>
       <value name="timeline" display-name-key="View_Timeline">timeline</value>
+    </property>
+
+    <!--
+      0.4.0: how much the timeline shows. `month` is what it always showed;
+      `quarter` is the calendar quarter the anchor sits in, stepped three
+      months at a time, with narrower days — a project plan's view. An Enum
+      with `month` as its default, so an installed timeline is unchanged.
+    -->
+    <property name="timelineSpan"
+              display-name-key="TimelineSpan_Name"
+              description-key="TimelineSpan_Desc"
+              of-type="Enum"
+              usage="input"
+              required="false"
+              default-value="month">
+      <value name="month" display-name-key="TimelineSpan_Month">month</value>
+      <value name="quarter" display-name-key="TimelineSpan_Quarter">quarter</value>
     </property>
 
     <!--

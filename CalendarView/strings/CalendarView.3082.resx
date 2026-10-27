@@ -317,4 +317,28 @@
   <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
     <value>Terminar {0} minutos después</value>
   </data>
+  <data name="ParentField_Name" xml:space="preserve">
+    <value>Principal</value>
+  </data>
+  <data name="ParentField_Desc" xml:space="preserve">
+    <value>Una búsqueda a la misma tabla: el evento al que pertenece este. En el cronograma, un evento aparece debajo de su principal, con sangría, y un principal se puede contraer. Solo lectura.</value>
+  </data>
+  <data name="DependsOnField_Name" xml:space="preserve">
+    <value>Depende de</value>
+  </data>
+  <data name="DependsOnField_Desc" xml:space="preserve">
+    <value>Una búsqueda a la misma tabla: el evento que este espera. En el cronograma, una flecha va del final de ese evento al inicio de este, y se vuelve roja si este empieza antes. Solo lectura.</value>
+  </data>
+  <data name="TimelineSpan_Name" xml:space="preserve">
+    <value>Intervalo del cronograma</value>
+  </data>
+  <data name="TimelineSpan_Desc" xml:space="preserve">
+    <value>Cuánto muestra el cronograma: un mes, o el trimestre natural, avanzando de tres en tres meses.</value>
+  </data>
+  <data name="TimelineSpan_Month" xml:space="preserve">
+    <value>Mes</value>
+  </data>
+  <data name="TimelineSpan_Quarter" xml:space="preserve">
+    <value>Trimestre</value>
+  </data>
 </root>

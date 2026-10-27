@@ -2,6 +2,62 @@
 
 A Dataverse view as a month, week or timeline calendar, by a date column.
 
+## 0.4.0 — a light Gantt on the timeline (probe 0.3.5, 27 October 2026)
+
+Picked by the twenty-eighth demand run: Gantt is the largest request the
+catalogue has not met — the PCF Gallery board's first open topic (Gantt 12,
+project plan 8), Resco's second (9), and the most-starred single control on
+GitHub's PCF topics (`pcf-universal-gantt-chart`, 65★). This control's own
+limitations page opened the section *Not a Gantt chart*, and the hub had no
+hit for Gantt dependencies.
+
+The plan, chosen with the user on 27 October: on the **timeline** only,
+
+- a **Parent** role (`parentField`, a lookup): rows in tree order, a loaded
+  parent first with its own bar and its children indented under it, several
+  levels deep, each with a collapse chevron; a child whose parent is not
+  loaded sits under a **header row** named from the lookup, with a bracket
+  over its children's span that nothing can drag;
+- a **Depends on** role (`dependsOnField`, a lookup — one predecessor per
+  task, read with the rows already loaded): a finish-to-start arrow from the
+  predecessor's bar to the successor's, drawn only where both bars are on
+  screen, and the label naming the predecessor where not;
+- a **conflict** where a task starts before its predecessor finishes: the
+  arrow and the label turn red, a move into one is announced and still
+  written — nothing blocks, nothing is rescheduled;
+- `timelineSpan`, **Month** (the default, unchanged) or **Quarter**: the
+  calendar quarter, stepped three months at a time, narrower days.
+
+All three properties are optional and new; an installed calendar is
+unchanged until a maker binds or sets one. No new `<uses-feature>`.
+
+**Nothing of 0.4.0 is written until these are answered**, and an answer the
+wrong way removes what rests on it. The probe is `CalendarView/probe.ts` on
+`window.__pcfCalendarViewProbe` (`.version` is `0.3.5-probe` — check it
+before trusting an answer). The probe's manifest already carries the three
+new properties, so binding them is part of what is measured.
+
+The test environment has two new lookups on `cll_event`, both to `cll_event`:
+`cll_parenttask` and `cll_dependson` (created 27 October, Default solution).
+Nine events prefixed *Plan:* on the Adventure Works (sample) account carry
+them: *Website launch* (5 Oct – 20 Nov) over *Design* (over *Wireframes*),
+*Build*, *Test* and *Go live* in a chain; *Training* in January 2027, outside
+the October quarter, over *Write course* and *Pilot session* — which starts
+before *Write course* ends. Delete them with the two columns when 0.4.0 is
+released.
+
+| | Question | Right way | If it goes the wrong way | Measured |
+| --- | --- | --- | --- | --- |
+| G1 | Bind `parentField` → `cll_parenttask` and `dependsOnField` → `cll_dependson` on the subgrid (form XML), publish. Passive: the two columns on `dataset.columns` — `alias`, `name`, `dataType`, `order` | Publish succeeds; both arrive, `dataType` `Lookup.Simple`, found by alias | A role that cannot be bound is not shipped: no tree without G1 for Parent, no arrows without it for Depends on | |
+| G2 | Passive: `getValue` / `getFormattedValue` of both lookups on every loaded row, and whether the referenced id is loaded | `{ etn, id: { guid }, name }`, GUID bare and lower-case, `name` present **even when the target row is not loaded** (*Write course* → *Training*) | No `name` for an unloaded target: the header row and "After ‹name›" say "(not loaded)" instead, or the control reads the names itself — decided then | |
+| G3 | Passive: is a role column that is **not in the view** fetched? (the subgrid's view has neither lookup) | Values present, `order` −1 — as `pcf-chart-view` measured for a property-set column | The docs say "add both columns to the view", and the control says so when it finds the role bound and every value empty | |
+| G4 | Move a *Plan:* task a day later through the record route (the 0.3.4 menu), then `lookups()` on the passes after the `save()` | Both lookups still on the row | The tree and arrows flicker after every move; the control keeps the last values it read per record until a fetch that agrees | |
+| G5 | `span("2026-10-01", "2026-12-31")`: the window filter over a quarter, loaded to the last page, against a Web API count of the same condition under the same account | Equal counts; the nested `Or` still honoured over 92 days | Quarter ships, and the control loads pages until the quarter is whole — or it is cut | |
+| G6 | Passive: `timelineSpan` set static `quarter` in the form XML | `raw` is `"quarter"` | — | |
+
+After G4: `restore(id)` puts the record back as it was before the probe
+touched it.
+
 ## 0.3.0 — an hour grid (probe 0.2.5, 4 October 2026)
 
 Picked by the eighteenth demand run: downloads 3 → 17 in two days (the

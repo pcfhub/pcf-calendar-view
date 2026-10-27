@@ -317,4 +317,28 @@
   <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
     <value>{0} Minuten später enden</value>
   </data>
+  <data name="ParentField_Name" xml:space="preserve">
+    <value>Übergeordnet</value>
+  </data>
+  <data name="ParentField_Desc" xml:space="preserve">
+    <value>Eine Suche auf dieselbe Tabelle: das Ereignis, zu dem dieses gehört. In der Zeitleiste steht ein Ereignis eingerückt unter seinem übergeordneten, und dieses lässt sich zuklappen. Nur lesend.</value>
+  </data>
+  <data name="DependsOnField_Name" xml:space="preserve">
+    <value>Abhängig von</value>
+  </data>
+  <data name="DependsOnField_Desc" xml:space="preserve">
+    <value>Eine Suche auf dieselbe Tabelle: das Ereignis, auf das dieses wartet. In der Zeitleiste führt ein Pfeil vom Ende jenes Ereignisses zum Beginn dieses und wird rot, wenn dieses früher beginnt. Nur lesend.</value>
+  </data>
+  <data name="TimelineSpan_Name" xml:space="preserve">
+    <value>Zeitraum der Zeitleiste</value>
+  </data>
+  <data name="TimelineSpan_Desc" xml:space="preserve">
+    <value>Wie viel die Zeitleiste zeigt: einen Monat oder das Kalenderquartal, in Schritten von drei Monaten.</value>
+  </data>
+  <data name="TimelineSpan_Month" xml:space="preserve">
+    <value>Monat</value>
+  </data>
+  <data name="TimelineSpan_Quarter" xml:space="preserve">
+    <value>Quartal</value>
+  </data>
 </root>

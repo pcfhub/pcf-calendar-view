@@ -317,4 +317,28 @@
   <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
     <value>終了を {0} 分遅らせる</value>
   </data>
+  <data name="ParentField_Name" xml:space="preserve">
+    <value>親</value>
+  </data>
+  <data name="ParentField_Desc" xml:space="preserve">
+    <value>同じテーブルへの検索列：このイベントが属するイベント。タイムラインでは、イベントが親の下にインデントして表示され、親は折りたためます。読み取り専用。</value>
+  </data>
+  <data name="DependsOnField_Name" xml:space="preserve">
+    <value>依存先</value>
+  </data>
+  <data name="DependsOnField_Desc" xml:space="preserve">
+    <value>同じテーブルへの検索列：このイベントが待つイベント。タイムラインでは、そのイベントの終了からこのイベントの開始へ矢印が引かれ、このイベントが先に始まると赤になります。読み取り専用。</value>
+  </data>
+  <data name="TimelineSpan_Name" xml:space="preserve">
+    <value>タイムラインの期間</value>
+  </data>
+  <data name="TimelineSpan_Desc" xml:space="preserve">
+    <value>タイムラインに表示する範囲：1 か月、または暦上の四半期（3 か月ずつ移動）。</value>
+  </data>
+  <data name="TimelineSpan_Month" xml:space="preserve">
+    <value>月</value>
+  </data>
+  <data name="TimelineSpan_Quarter" xml:space="preserve">
+    <value>四半期</value>
+  </data>
 </root>

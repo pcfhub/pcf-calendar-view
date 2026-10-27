@@ -317,4 +317,28 @@
   <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
     <value>End {0} minutes later</value>
   </data>
+  <data name="ParentField_Name" xml:space="preserve">
+    <value>Parent</value>
+  </data>
+  <data name="ParentField_Desc" xml:space="preserve">
+    <value>A lookup to the same table: the event this one belongs to. On the timeline, an event is listed under its parent, indented, and a parent can be collapsed. Read only.</value>
+  </data>
+  <data name="DependsOnField_Name" xml:space="preserve">
+    <value>Depends on</value>
+  </data>
+  <data name="DependsOnField_Desc" xml:space="preserve">
+    <value>A lookup to the same table: the event this one waits for. On the timeline, an arrow runs from that event's end to this one's start, and turns red when this one starts first. Read only.</value>
+  </data>
+  <data name="TimelineSpan_Name" xml:space="preserve">
+    <value>Timeline span</value>
+  </data>
+  <data name="TimelineSpan_Desc" xml:space="preserve">
+    <value>How much the timeline shows: a month, or the calendar quarter, stepped three months at a time.</value>
+  </data>
+  <data name="TimelineSpan_Month" xml:space="preserve">
+    <value>Month</value>
+  </data>
+  <data name="TimelineSpan_Quarter" xml:space="preserve">
+    <value>Quarter</value>
+  </data>
 </root>

@@ -317,4 +317,28 @@
   <data name="CalendarView_EndLaterMinutes" xml:space="preserve">
     <value>Finir {0} minutes plus tard</value>
   </data>
+  <data name="ParentField_Name" xml:space="preserve">
+    <value>Parent</value>
+  </data>
+  <data name="ParentField_Desc" xml:space="preserve">
+    <value>Une recherche vers la même table : l’événement auquel celui-ci appartient. Sur la chronologie, un événement est listé sous son parent, en retrait, et un parent peut être réduit. Lecture seule.</value>
+  </data>
+  <data name="DependsOnField_Name" xml:space="preserve">
+    <value>Dépend de</value>
+  </data>
+  <data name="DependsOnField_Desc" xml:space="preserve">
+    <value>Une recherche vers la même table : l’événement que celui-ci attend. Sur la chronologie, une flèche va de la fin de cet événement au début de celui-ci, et devient rouge si celui-ci commence avant. Lecture seule.</value>
+  </data>
+  <data name="TimelineSpan_Name" xml:space="preserve">
+    <value>Étendue de la chronologie</value>
+  </data>
+  <data name="TimelineSpan_Desc" xml:space="preserve">
+    <value>Ce que la chronologie affiche : un mois, ou le trimestre civil, par pas de trois mois.</value>
+  </data>
+  <data name="TimelineSpan_Month" xml:space="preserve">
+    <value>Mois</value>
+  </data>
+  <data name="TimelineSpan_Quarter" xml:space="preserve">
+    <value>Trimestre</value>
+  </data>
 </root>
