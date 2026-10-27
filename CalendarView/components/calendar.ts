@@ -24,6 +24,10 @@ export const ROLES = {
     end: 'endField',
     title: 'titleField',
     color: 'colorField',
+    /** 0.4.0: a lookup to the same table — the event this one sits under on the timeline. */
+    parent: 'parentField',
+    /** 0.4.0: a lookup to the same table — the event this one waits for. */
+    dependsOn: 'dependsOnField',
 } as const;
 
 /**
@@ -57,6 +61,17 @@ export interface CalendarEvent {
     badge: string | null;
     /** The option's colour, when the option set carries one. */
     color: string | null;
+    /** 0.4.0: the Parent role's value, when bound and set. */
+    parent?: Reference | null;
+    /** 0.4.0: the Depends on role's value, when bound and set. */
+    dependsOn?: Reference | null;
+}
+
+/** A lookup's value, as the plan reads it: the GUID bare and lower-case, the name as the platform sent it. */
+export interface Reference {
+    id: string;
+    name: string;
+    etn: string | null;
 }
 
 /**
@@ -68,6 +83,9 @@ export interface CalendarEvent {
  * hours. With the grid on, `week` is drawn against the hours too.
  */
 export type View = 'month' | 'week' | 'day' | 'timeline';
+
+/** How much a timeline shows (0.4.0): the anchor's month, or its calendar quarter. */
+export type Span = 'month' | 'quarter';
 
 /** How `Behavior` is read off a metadata node. The numbers are the platform's. */
 export function behaviorOf(node: unknown): Behavior {
@@ -396,20 +414,28 @@ export function weekDays(anchor: Wall, firstDay: number): Wall[] {
  * The days a timeline shows: the anchor's month, the 1st through the last,
  * with no padding weeks — a bar chart has no reason to show a week of the
  * next month, and the column count is what sets the day width.
+ *
+ * A quarter (0.4.0) is the calendar quarter the anchor's month is in —
+ * January, April, July or October through the end of the third month.
  */
-export function timelineDays(anchor: Wall): Wall[] {
-    const count = new Date(anchor.year, anchor.month + 1, 0).getDate();
+export function timelineDays(anchor: Wall, span: Span = 'month'): Wall[] {
+    const firstMonth = span === 'quarter' ? anchor.month - (anchor.month % 3) : anchor.month;
+    const months = span === 'quarter' ? 3 : 1;
     const days: Wall[] = [];
 
-    for (let day = 1; day <= count; day += 1) {
-        days.push({ year: anchor.year, month: anchor.month, day, hour: 0, minute: 0 });
+    for (let month = firstMonth; month < firstMonth + months; month += 1) {
+        const count = new Date(anchor.year, month + 1, 0).getDate();
+
+        for (let day = 1; day <= count; day += 1) {
+            days.push({ year: anchor.year, month, day, hour: 0, minute: 0 });
+        }
     }
 
     return days;
 }
 
 /** The first and last day a view shows, inclusive — what the window filter asks for. */
-export function visibleRange(view: View, anchor: Wall, firstDay: number): { first: Wall; last: Wall } {
+export function visibleRange(view: View, anchor: Wall, firstDay: number, span: Span = 'month'): { first: Wall; last: Wall } {
     if (view === 'day') {
         const day = { ...anchor, hour: 0, minute: 0 };
 
@@ -423,7 +449,7 @@ export function visibleRange(view: View, anchor: Wall, firstDay: number): { firs
     }
 
     if (view === 'timeline') {
-        const days = timelineDays(anchor);
+        const days = timelineDays(anchor, span);
 
         return { first: days[0], last: days[days.length - 1] };
     }
@@ -434,7 +460,7 @@ export function visibleRange(view: View, anchor: Wall, firstDay: number): { firs
 }
 
 /** Where a step of the navigation lands. */
-export function stepAnchor(view: View, anchor: Wall, direction: -1 | 1): Wall {
+export function stepAnchor(view: View, anchor: Wall, direction: -1 | 1, span: Span = 'month'): Wall {
     if (view === 'day') {
         return shiftDays(anchor, direction);
     }
@@ -443,9 +469,11 @@ export function stepAnchor(view: View, anchor: Wall, direction: -1 | 1): Wall {
         return shiftDays(anchor, 7 * direction);
     }
 
-    // Month and timeline both step by month. Day 1, so stepping from 31
-    // January lands in February rather than March.
-    return localWall(new Date(anchor.year, anchor.month + direction, 1, 12));
+    // Month and timeline both step by month — a quarter's timeline by three.
+    // Day 1, so stepping from 31 January lands in February rather than March.
+    const months = view === 'timeline' && span === 'quarter' ? 3 : 1;
+
+    return localWall(new Date(anchor.year, anchor.month + months * direction, 1, 12));
 }
 
 /**
@@ -523,6 +551,281 @@ export function timelineBar(event: CalendarEvent, first: Wall, last: Wall): Bar 
  */
 export function clampResize(edge: 'start' | 'end', days: number, length: number): number {
     return edge === 'start' ? Math.min(days, length) : Math.max(days, -length);
+}
+
+// ---------------------------------------------------------------------------
+// The plan (0.4.0)
+// ---------------------------------------------------------------------------
+
+/** A record id or a lookup's GUID in one spelling: no braces, lower case. */
+export function bareId(id: string): string {
+    return id.replace(/[{}]/g, '').toLowerCase();
+}
+
+/**
+ * A lookup's raw value as a `Reference`, or `null`.
+ *
+ * On a dataset record `getValue` hands over `{ etn, id: { guid }, name }`,
+ * the GUID already bare and lower-case, and `name` is there even when the
+ * row it points at is not loaded (SPEC.md G2, measured 27 October 2026). An
+ * `id` that is already a string is taken as it is, and an array — what a
+ * multi-table lookup could give — by its first entry.
+ */
+export function referenceOf(raw: unknown): Reference | null {
+    const value: unknown = Array.isArray(raw) ? raw[0] : raw;
+
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const { id, name, etn, entityType } = value as { id?: unknown; name?: unknown; etn?: unknown; entityType?: unknown };
+    const guid = id && typeof id === 'object' ? (id as { guid?: unknown }).guid : id;
+
+    if (typeof guid !== 'string' || guid.trim() === '') {
+        return null;
+    }
+
+    return {
+        id: bareId(guid.trim()),
+        name: typeof name === 'string' ? name : '',
+        etn: typeof etn === 'string' ? etn : typeof entityType === 'string' ? entityType : null,
+    };
+}
+
+/** One row of the timeline in plan order. */
+export interface PlanRow {
+    /** The event's id, bare — or `header:` and the parent's id, for a parent that is not loaded. */
+    key: string;
+    /** The event drawn on this row; `null` on a header row. */
+    event: CalendarEvent | null;
+    /** On a header row, the parent it stands for. */
+    header: Reference | null;
+    /** 1 for a top row and one more per level under it: the row's `aria-level`. */
+    level: number;
+    hasChildren: boolean;
+    /** Whether its children are shown; `false` on a row with none. */
+    expanded: boolean;
+    /** On a header row, the earliest start and the latest end under it — what its bracket spans. */
+    start: Wall | null;
+    end: Wall | null;
+}
+
+/**
+ * The timeline's rows as a plan: every event under its Parent.
+ *
+ * `events` arrive in `eventsInRange` order, and every list here keeps it — a
+ * top row where its first event would have been, children by start. A
+ * parent that is loaded is a row of its own with its bar; one that is not
+ * becomes a **header row** named from the lookup, standing where its first
+ * child would, with every child under it. Several levels nest. A loop
+ * (A under B under A) is cut at its earliest row, which becomes a top row,
+ * and an event that names itself is a top row.
+ *
+ * `collapsed` holds the keys of rows whose children are hidden. With no
+ * event carrying a parent, the rows are `events` in their order, every one
+ * at level 1 — the timeline before 0.4.0.
+ */
+export function planRows(events: CalendarEvent[], collapsed: ReadonlySet<string> = new Set()): PlanRow[] {
+    const ids = events.map((event) => bareId(event.id));
+    const index = new Map(ids.map((id, at) => [id, at] as [string, number]));
+    const parentOf = new Map<string, string>();
+
+    events.forEach((event, at) => {
+        const parent = event.parent?.id;
+
+        if (parent && parent !== ids[at] && index.has(parent)) {
+            parentOf.set(ids[at], parent);
+        }
+    });
+
+    for (const id of ids) {
+        const seen = new Set<string>([id]);
+        let at = parentOf.get(id);
+
+        while (at !== undefined && !seen.has(at)) {
+            seen.add(at);
+            at = parentOf.get(at);
+        }
+
+        if (at !== undefined) {
+            const loop: string[] = [];
+            let member = at;
+
+            do {
+                loop.push(member);
+                member = parentOf.get(member) as string;
+            } while (member !== at);
+
+            loop.sort((a, b) => (index.get(a) as number) - (index.get(b) as number));
+            parentOf.delete(loop[0]);
+        }
+    }
+
+    const children = new Map<string, string[]>();
+    const headers = new Map<string, Reference>();
+    const roots: string[] = [];
+    const under = (key: string, id: string): void => {
+        children.set(key, [...(children.get(key) ?? []), id]);
+    };
+
+    events.forEach((event, at) => {
+        const id = ids[at];
+        const loaded = parentOf.get(id);
+
+        if (loaded !== undefined) {
+            under(loaded, id);
+
+            return;
+        }
+
+        const parent = event.parent && event.parent.id !== id && !index.has(event.parent.id) ? event.parent : null;
+
+        if (!parent) {
+            roots.push(id);
+
+            return;
+        }
+
+        const key = `header:${parent.id}`;
+
+        if (!headers.has(key)) {
+            headers.set(key, parent);
+            roots.push(key);
+        }
+
+        under(key, id);
+    });
+
+    const descendants = (key: string): CalendarEvent[] =>
+        (children.get(key) ?? []).flatMap((id) => [events[index.get(id) as number], ...descendants(id)]);
+
+    const rows: PlanRow[] = [];
+    const emit = (key: string, level: number): void => {
+        const kids = children.get(key) ?? [];
+        const header = headers.get(key) ?? null;
+        const expanded = kids.length > 0 && !collapsed.has(key);
+        let start: Wall | null = null;
+        let end: Wall | null = null;
+
+        if (header) {
+            for (const event of descendants(key)) {
+                const last = event.end ?? event.start;
+
+                start = !start || compareWall(event.start, start) < 0 ? event.start : start;
+                end = !end || compareWall(last, end) > 0 ? last : end;
+            }
+        }
+
+        rows.push({ key, event: header ? null : events[index.get(key) as number], header, level, hasChildren: kids.length > 0, expanded, start, end });
+
+        if (expanded) {
+            for (const kid of kids) {
+                emit(kid, level + 1);
+            }
+        }
+    };
+
+    for (const key of roots) {
+        emit(key, 1);
+    }
+
+    return rows;
+}
+
+/**
+ * When an event is over, for a finish-to-start link: a timed event at its
+ * end, or its start where it has none; a whole-day event at the midnight
+ * after its last day, because a task that runs to the 20th runs all of it.
+ */
+export function finishOf(event: CalendarEvent): Wall {
+    const last = event.end ?? event.start;
+
+    return event.allDay ? { ...shiftDays(last, 1), hour: 0, minute: 0 } : last;
+}
+
+/** When an event begins, for the same comparison: a whole-day event at the midnight its first day opens with. */
+export function beginningOf(event: CalendarEvent): Wall {
+    return event.allDay ? { ...event.start, hour: 0, minute: 0 } : event.start;
+}
+
+/** A finish-to-start link between two events in a list. */
+export interface Link {
+    /** The predecessor's id, as its event carries it. */
+    from: string;
+    /** The successor's id — the event whose Depends on names `from`. */
+    to: string;
+    /** The successor begins before the predecessor is over. */
+    conflict: boolean;
+}
+
+/**
+ * The links among `events`: one for each event whose Depends on names
+ * another event in the list. A predecessor that is not in the list makes no
+ * link — what it is was not loaded, so nothing can be said of its dates. An
+ * event that names itself makes none, and a loop (A after B after A) is the
+ * two links it is, each judged on its own, so nothing here recurses.
+ */
+export function dependencyLinks(events: CalendarEvent[]): Link[] {
+    const byId = new Map(events.map((event) => [bareId(event.id), event] as [string, CalendarEvent]));
+    const links: Link[] = [];
+
+    for (const event of events) {
+        const target = event.dependsOn ? byId.get(event.dependsOn.id) : undefined;
+
+        if (!target || target === event) {
+            continue;
+        }
+
+        links.push({ from: target.id, to: event.id, conflict: compareWall(beginningOf(event), finishOf(target)) < 0 });
+    }
+
+    return links;
+}
+
+/** The links a change put into conflict: in conflict `after`, and not `before`. */
+export function newConflicts(before: Link[], after: Link[]): Link[] {
+    const was = new Set(before.filter((link) => link.conflict).map((link) => `${link.from}>${link.to}`));
+
+    return after.filter((link) => link.conflict && !was.has(`${link.from}>${link.to}`));
+}
+
+/** A bar's box inside the timeline's grid, in pixels from the grid's top-left corner. */
+export interface Rect {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+}
+
+/** How far an arrow runs out of a bar before it turns, in pixels. */
+export const LINK_STUB = 8;
+
+/**
+ * The SVG path of a finish-to-start arrow, in right angles: out of the
+ * predecessor's end, into the successor's start.
+ *
+ * With room between the two, the line runs out, turns to the successor's
+ * row, and runs in. Without — a conflict, or bars that touch — it runs out,
+ * turns halfway between the two rows, runs back past the successor's start,
+ * and comes in from the side a bar is entered from, so the arrowhead always
+ * points the way time runs. Right to left, a bar's end is its left edge and
+ * "out" is leftward.
+ */
+export function linkPath(from: Rect, to: Rect, rtl: boolean): string {
+    const dir = rtl ? -1 : 1;
+    const x1 = rtl ? from.left : from.left + from.width;
+    const x2 = rtl ? to.left + to.width : to.left;
+    const y1 = from.top + from.height / 2;
+    const y2 = to.top + to.height / 2;
+    const out = x1 + dir * LINK_STUB;
+    const into = x2 - dir * LINK_STUB;
+    const px = (value: number): number => Math.round(value * 2) / 2;
+
+    if ((into - out) * dir >= 0) {
+        return `M${px(x1)} ${px(y1)}H${px(out)}V${px(y2)}H${px(x2)}`;
+    }
+
+    return `M${px(x1)} ${px(y1)}H${px(out)}V${px((y1 + y2) / 2)}H${px(into)}V${px(y2)}H${px(x2)}`;
 }
 
 // ---------------------------------------------------------------------------

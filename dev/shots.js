@@ -66,6 +66,14 @@ const RECIPES = [
         frame: '.CalendarView',
     },
     {
+        name: 'screenshot-plan-quarter.png',
+        purpose: '0.4.0: the timeline as a plan — the October quarter, tasks under their parents, arrows, the red conflict',
+        page: 'dev/preview.html',
+        query: 'fixture=demo&date=2026-10-05&zone=-300&width=1400&view=timeline&span=quarter',
+        width: 1432,
+        frame: '.CalendarView',
+    },
+    {
         name: 'screenshot-hours-narrow.png',
         purpose: 'the hour grid in a 373px column: the days scroll sideways inside the box',
         page: 'dev/preview.html',

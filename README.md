@@ -41,7 +41,11 @@ against the hours. Dragging an event to another day writes the new date back
 to the record; in the hour grid a drag moves it to another time and its bottom
 edge changes its end; dragging an end of a bar on the timeline writes that one
 column; pressing **+**, or a free slot in the hour grid, opens the quick
-create form with the day — or the start and end — filled in. The subgrid this replaces
+create form with the day — or the start and end — filled in. From 0.4.0 the
+timeline is also a light Gantt: bind **Parent** and its rows become a tree of
+tasks under their parents, bind **Depends on** and finish-to-start arrows run
+between them, red where a task starts before its predecessor ends, and
+**Timeline span** shows a quarter at a time. The subgrid this replaces
 can show the same rows, but it cannot show *which days* they fall on, and a
 list of dates is the one shape a grid does not have.
 
@@ -91,10 +95,20 @@ moves and the release bubble to the bar, because a handle with its own
 data agrees on **both** days — the start already agrees on the very next pass,
 and retiring on it alone snapped the bar back until the refresh landed.
 
+**The arrows are measured, not computed (0.4.0).** A bar's columns are known
+but its pixels are the browser's — `1fr` tracks, margins, a label column set
+by a variable — so an SVG layer over the grid is drawn after every render from
+the bars' own rectangles, which is also what keeps an arrow on a bar while it
+is dragged. The layer is `aria-hidden`; each row's label says the same thing
+in words (*After ‹name›*, or *Starts before ‹name› ends* on screen in red), and
+the rows are `role="row"` wrappers laid out with `display: contents` so the
+grid stays one grid and a screen reader finds a `treegrid`.
+
 ## Properties
 
 Bind the dataset to a view, then bind the column roles. **Start** and **Title**
-are required; every column bound to a role must be in the view.
+are required; every column bound to a role must be in the view, except
+**Parent** and **Depends on**, which were measured arriving without it.
 
 | Role | `property-set` | Type | Required | What it is |
 | --- | --- | --- | --- | --- |
@@ -102,12 +116,15 @@ are required; every column bound to a role must be in the view.
 | End | `endField` | DateAndTime.DateOnly | DateAndTime.DateAndTime | no | When it ends, so it spans its days. Shifted with the start. |
 | Title | `titleField` | SingleLine.Text | **yes** | The event's text. |
 | Colour | `colorField` | OptionSet | no | A choice column whose option colours colour the events; its label is a badge in the week view and on the timeline. |
+| Parent | `parentField` | Lookup.Simple | no | A lookup to the same table: the task this one sits under on the timeline. Read only. |
+| Depends on | `dependsOnField` | Lookup.Simple | no | A lookup to the same table: the task this one waits for, drawn as a finish-to-start arrow. Read only. |
 
 | Property | Type | Usage | Default | What it controls |
 | --- | --- | --- | --- | --- |
 | `defaultView` | Enum `month` | `week` | `day` | `timeline` | input | `month` | The view the calendar opens in; `day` needs the hour grid, and opens its week without it. |
 | `hourGrid` | TwoOptions | input | off | Day and Week drawn against the hours, with a Day view. Off keeps an installed week as it was. |
 | `slotMinutes` | Enum `15` | `30` | `60` | input | `30` | The hour grid's step: what a drag snaps to, how long a slot's event is, how far the menu moves. |
+| `timelineSpan` | Enum `month` | `quarter` | input | `month` | How much the timeline shows: a month, or the calendar quarter, stepped three months at a time. |
 | `weekStart` | Enum `auto` | `sunday` | `monday` | input | `auto` | The first day of the week; `auto` follows the user's personal options. |
 | `initialDate` | SingleLine.Text | input | *(empty — today)* | A `yyyy-MM-dd` to open on. |
 | `allowMove` | TwoOptions | input | on | Whether events can be dragged or moved from their menu — and, on the timeline, resized by their edges. |

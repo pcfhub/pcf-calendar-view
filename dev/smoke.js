@@ -740,6 +740,126 @@ check('no day is marked selected before one is pressed', !/is-selected/.test(tim
 
 check('and every day button carries aria-pressed, the attribute a press flips', (timelineMarkup.match(/aria-pressed="false"/g) || []).length >= 30 && (markup(plain).match(/aria-pressed="false"/g) || []).length >= 35, `${(timelineMarkup.match(/aria-pressed="false"/g) || []).length} / ${(markup(plain).match(/aria-pressed="false"/g) || []).length}`);
 
+/* ------------------------------------------------- the plan (0.4.0) */
+
+/*
+ * Parent and Depends on bound, the October quarter, `fixture.plan`. A static
+ * render runs no effect, so what is asserted is the tree, the labels and the
+ * layer's presence; the arrows' paths are measured in a browser, and
+ * `dev/clicks.js` drags one into a conflict and collapses a parent.
+ */
+const PLAN_COLUMNS = fixture.columns.concat(fixture.plan.columns);
+const planned = (inputs, extra) => bind({
+    inputs: { defaultView: 'timeline', initialDate: '2026-10-05', timelineSpan: 'quarter', ...inputs },
+    userTimeZoneOffset: -300,
+    pageSize: 50,
+    columns: PLAN_COLUMNS,
+    records: fixture.plan.records,
+    ...extra,
+});
+const plan = planned({});
+const planMarkup = markup(plan);
+
+/** The plan's rows in order: the title each label carries, its aria-level, and its aria-expanded. */
+function planOrder(html) {
+    return [...html.matchAll(/<div class="CalendarView-tlRow" role="row"(?: aria-level="(\d+)")?(?: aria-expanded="(true|false)")?><div class="CalendarView-tlLabel[^"]*"[^>]*>[\s\S]*?class="CalendarView-eventTitle"[^>]*title="([^"]*)"/g)]
+        .map((hit) => `${hit[3]}${hit[1] ? `:${hit[1]}` : ''}${hit[2] === 'true' ? '+' : ''}`);
+}
+
+/** One row's markup, from its wrapper to the next, by the title its label carries. */
+function planRow(html, title) {
+    // The last row runs on into the arrow layer, whose markers carry is-conflict too; cut it there.
+    const rows = html.split('<svg class="CalendarView-tlLinks"')[0].split('<div class="CalendarView-tlRow" role="row"');
+
+    return rows.find((each) => each.includes(`title="${title}"`)) || '';
+}
+
+check('the two roles are read off the record and passed down raw, as the lookup the form hands over', (() => {
+    const design = plan.props().rows.find((row) => row.id === 't2');
+    const build = plan.props().rows.find((row) => row.id === 't4');
+
+    return plan.props().hasParent && plan.props().hasDependsOn && design.parent.id.guid === 't1' && design.parent.name === 'Launch' && design.dependsOn === null && build.dependsOn.name === 'Design';
+})(), '');
+
+check('timelineSpan is passed down as quarter, and anything else as month', plan.props().timelineSpan === 'quarter' && planned({ timelineSpan: 'year' }).props().timelineSpan === 'month' && timeline.props().timelineSpan === 'month', '');
+
+check('a quarter is October to December: 92 day columns, and the heading names both ends', (planMarkup.match(/CalendarView-tlHead[^>]*data-day="2026-1[0-2]-/g) || []).length === 92 && !planMarkup.includes('data-day="2026-09-30"') && !planMarkup.includes('data-day="2027-01-01"') && planMarkup.includes('October – December 2026'), String((planMarkup.match(/data-day=/g) || []).length));
+
+check('with a band of month names over the days', (planMarkup.match(/class="CalendarView-tlMonth"/g) || []).length === 3, String((planMarkup.match(/class="CalendarView-tlMonth"/g) || []).length));
+
+check('and a number on the 1st and on each week\'s first day only — Sunday in the rig — fifteen of the 92', (planMarkup.match(/class="CalendarView-dayNumber"[^>]*>\d+</g) || []).length === 15, String((planMarkup.match(/class="CalendarView-dayNumber"[^>]*>\d+</g) || []).length));
+
+check('a month span is still the month', (markup(planned({ timelineSpan: 'month' })).match(/CalendarView-tlHead[^>]*data-day=/g) || []).length === 31, '');
+
+check('with a Parent bound and a tree in range, the timeline is a treegrid', /role="treegrid"/.test(planMarkup) && !/role="grid"/.test(planMarkup), '');
+
+check('the rows are a plan: each parent first, its children under it by start, a level deeper; a parent not loaded is a header; a loop is cut at its earliest row', planOrder(planMarkup).join(' | ') === 'Launch:1+ | Design:2+ | Wireframes:3 | Build:2 | Test:2 | Training:1+ | Write course:2 | Pilot:2 | Handover:1 | Loop A:1+ | Loop B:2 | Self:1', planOrder(planMarkup).join(' | '));
+
+check('and aria-rowcount counts them, the header row of days included', /aria-rowcount="13"/.test(planMarkup), (/aria-rowcount="(\d+)"/.exec(planMarkup) || [])[1]);
+
+check('the header row is named from the lookup, with a bracket over its tasks — 2 to 20 November, day columns 32 to 50', (() => {
+    const header = planRow(planMarkup, 'Training');
+
+    return /CalendarView-tlLabel is-header/.test(header) && /class="CalendarView-tlBracket"[^>]*style="grid-row:\d+;grid-column:34 \/ span 19"/.test(header);
+})(), (/CalendarView-tlBracket[^>]*>/.exec(planRow(planMarkup, 'Training')) || [''])[0]);
+
+check('and has nothing to drag, open or move: no bar, no title button, no menu', (() => {
+    const header = planRow(planMarkup, 'Training');
+
+    return !header.includes('CalendarView-tlBar') && !header.includes('<button type="button" class="CalendarView-eventTitle"') && !header.includes('CalendarView_MoveEvent');
+})(), '');
+
+check('every row with children has a collapse button, and only those', (planMarkup.match(/resx:CalendarView_Collapse/g) || []).length === 4 && !planMarkup.includes('resx:CalendarView_Expand'), String((planMarkup.match(/resx:CalendarView_Collapse/g) || []).length));
+
+check('the levels are indented by a variable on the label', /CalendarView-tlLabel[^"]*" role="rowheader" style="[^"]*--CalendarView-tlLevel:2/.test(planRow(planMarkup, 'Wireframes')), '');
+
+check('with Depends on bound, an arrow layer is laid over the grid and hidden from screen readers', /<svg class="CalendarView-tlLinks" aria-hidden="true"/.test(planMarkup), '');
+
+// Each note carries its text twice — as text and as the title a cut-off one is read from — so these count the text.
+check('a task whose predecessor is on screen says "After" to a screen reader only — the arrow says it to the eye', ['Build', 'Test', 'Handover', 'Loop B'].every((title) => /class="CalendarView-tlNote CalendarView-srOnly" title="resx:CalendarView_After">resx:CalendarView_After</.test(planRow(planMarkup, title))) && (planMarkup.match(/>resx:CalendarView_After</g) || []).length === 4, String((planMarkup.match(/>resx:CalendarView_After</g) || []).length));
+
+check('a task that starts before its predecessor ends says so on screen, in the conflict colour', ['Pilot', 'Loop A'].every((title) => /class="CalendarView-tlNote is-conflict" title="resx:CalendarView_StartsBefore">resx:CalendarView_StartsBefore</.test(planRow(planMarkup, title))) && (planMarkup.match(/>resx:CalendarView_StartsBefore</g) || []).length === 2, String((planMarkup.match(/>resx:CalendarView_StartsBefore</g) || []).length));
+
+check('starting the minute the predecessor ends is no conflict', !planRow(planMarkup, 'Handover').includes('is-conflict'), '');
+
+check('and a minute earlier is one', planRow(markup(planned({}, { records: fixture.plan.records.map((row) => (row.id === 't12' ? { ...row, values: { ...row.values, scheduledstart: '2026-11-13T21:59:00Z' } } : row)) })), 'Handover').includes('is-conflict'), '');
+
+check('an event that names itself as its own parent and predecessor is a plain top row with no note', planOrder(planMarkup).includes('Self:1') && !planRow(planMarkup, 'Self').includes('CalendarView-tlNote'), '');
+
+/*
+ * A whole-day predecessor runs to the end of its last day: a task on the
+ * same day starts before it is over, one on the next day does not. Start
+ * rebound to the Date Only column, no end.
+ */
+const allDay = planned({}, {
+    columns: PLAN_COLUMNS.map((column) => (column.alias === 'startField' ? { ...column, alias: 'scheduledstart' } : column.alias === 'endField' ? { ...column, alias: 'scheduledend' } : column.name === 'cll_dueon' ? { ...column, alias: 'startField' } : column)),
+    records: [
+        { id: 'a1', values: { subject: 'Survey', cll_dueon: '2026-11-03T00:00:00.000Z', cll_parent: null, cll_after: null } },
+        { id: 'a2', values: { subject: 'Same day', cll_dueon: '2026-11-03T00:00:00.000Z', cll_parent: null, cll_after: { etn: 'appointment', id: { guid: 'a1' }, name: 'Survey' } } },
+        { id: 'a3', values: { subject: 'Next day', cll_dueon: '2026-11-04T00:00:00.000Z', cll_parent: null, cll_after: { etn: 'appointment', id: { guid: 'a1' }, name: 'Survey' } } },
+    ],
+});
+
+check('a whole-day predecessor is over at the end of its day: the same day conflicts, the next does not', planRow(markup(allDay), 'Same day').includes('is-conflict') && !planRow(markup(allDay), 'Next day').includes('is-conflict') && planRow(markup(allDay), 'Next day').includes('CalendarView_After'), '');
+
+check('with Parent bound but no tree in range, the timeline is the flat grid it was — no chevron room, no levels', (() => {
+    const html = markup(bind({ inputs: { defaultView: 'timeline' }, userTimeZoneOffset: -300, columns: PLAN_COLUMNS }));
+
+    return /role="grid"/.test(html) && !html.includes('CalendarView-tlToggle') && !html.includes('aria-level') && (html.match(/class="CalendarView-tlLabel"/g) || []).length === 4;
+})(), '');
+
+check('with neither role bound, no layer and no notes', !timelineMarkup.includes('CalendarView-tlLinks') && !timelineMarkup.includes('CalendarView-tlNote') && /role="grid"/.test(timelineMarkup), '');
+
+check('the other views ignore both roles', (() => {
+    const html = markup(planned({ defaultView: 'month' }));
+
+    return html.includes('Launch') && !html.includes('CalendarView-tlLinks') && !html.includes('CalendarView_After') && !html.includes('CalendarView_StartsBefore') && !html.includes('treegrid');
+})(), '');
+
+check('every row is a role="row" — the header row of days and each plan row', (planMarkup.match(/class="CalendarView-tlRow" role="row"/g) || []).length === 13, String((planMarkup.match(/class="CalendarView-tlRow" role="row"/g) || []).length));
+
+check('and the live region a move into a conflict is announced in is there, empty until one is', /<p class="CalendarView-srOnly" aria-live="polite"><\/p>/.test(planMarkup), '');
+
 /* --------------------------------------------- an input changed after init */
 
 /*

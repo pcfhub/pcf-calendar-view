@@ -22,6 +22,10 @@ Week against the hours. A **Default view** of `day` opens the week it falls
 in while the grid is off. **Time step** is the grid's snap, the length of an
 event created from a free slot, and the menu's step.
 
+**Timeline span** (from 0.4.0) is `month` by default, the timeline every
+earlier version drew; `quarter` shows the calendar quarter and steps three
+months at a time. Any other value is read as `month`.
+
 ## Dataset
 
 ::props-table{kind=dataset}
@@ -45,6 +49,14 @@ arrives empty.
 runtime and decides how the value is placed — see
 [Model-driven apps](model-driven.md#how-a-date-is-placed). **Colour** must be
 a choice column; its option colours come from the option set's metadata.
+
+**Parent** and **Depends on** (from 0.4.0) are `Lookup.Simple`, each a lookup
+from the view's table to itself, and are read only. A row's value is the
+reference the dataset hands over — the target's id, unbraced and lower-case,
+and its name, which is there even when the target row is not loaded. They are
+fetched whether or not the view selects them (measured on a model-driven
+subgrid). Only the timeline draws them — see
+[Model-driven apps](model-driven.md#a-light-gantt-on-the-timeline).
 
 ## Outputs
 

@@ -22,8 +22,6 @@ import {
     windowFilter,
     workHoursOf,
 } from './components/calendar';
-// PROBE 0.3.5 — remove with CalendarView/probe.ts before the real build.
-import { installProbe } from './probe';
 
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
 type Column = ComponentFramework.PropertyHelper.DataSetApi.Column;
@@ -272,9 +270,6 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
      */
     private following: { id: string; askedAt: number; asks: number } | null = null;
 
-    // PROBE 0.3.5 — the context of the latest pass, so the probe never reads a dead dataset.
-    private latestContext: ComponentFramework.Context<IInputs> | null = null;
-
     public init(
         context: ComponentFramework.Context<IInputs>,
         notifyOutputChanged: () => void,
@@ -294,17 +289,13 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
 
         this.applyPageSize(context, dataset);
 
-        // PROBE 0.3.5
-        this.latestContext = context;
-
-        if ((dataset.sortedRecordIds ?? []).length > 0) {
-            installProbe(() => this.latestContext ?? context, () => this.latestContext?.parameters.records ?? dataset);
-        }
-
         const start = this.roleColumn(dataset, ROLES.start);
         const end = this.roleColumn(dataset, ROLES.end);
         const title = this.roleColumn(dataset, ROLES.title);
         const color = this.roleColumn(dataset, ROLES.color);
+        // 0.4.0: found by alias like the four above, and fetched whether or not the view carries them (SPEC.md G1, G3).
+        const parent = this.roleColumn(dataset, ROLES.parent);
+        const dependsOn = this.roleColumn(dataset, ROLES.dependsOn);
         const userOffset = userOffsetOf(context, this.offsetByDay);
 
         this.reconcile(dataset, start, end, userOffset);
@@ -318,13 +309,17 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         const step = Number(context.parameters.slotMinutes.raw);
 
         const props: IProps = {
-            rows: this.rows(dataset, start, end, title, color),
+            rows: this.rows(dataset, start, end, title, color, parent, dependsOn),
             startFormat: formatOf(start?.dataType),
             endFormat: formatOf(end?.dataType),
             hasStart: start !== undefined,
             hasTitle: title !== undefined,
             hasEnd: end !== undefined,
             hasColor: color !== undefined,
+            hasParent: parent !== undefined,
+            hasDependsOn: dependsOn !== undefined,
+            // Anything but `quarter` is the month an installed timeline has always shown.
+            timelineSpan: context.parameters.timelineSpan?.raw === 'quarter' ? 'quarter' : 'month',
             canFilter: typeof dataset.filtering?.setFilter === 'function',
             canMove: (context.parameters.allowMove.raw ?? true) && this.canWrite(context, dataset),
             canCreate: (context.parameters.allowCreate.raw ?? true) && formOpener(context) !== null,
@@ -567,6 +562,8 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
         end: Column | undefined,
         title: Column | undefined,
         color: Column | undefined,
+        parent: Column | undefined,
+        dependsOn: Column | undefined,
     ): Row[] {
         if (!start || !title) {
             return [];
@@ -590,6 +587,8 @@ export class CalendarView implements ComponentFramework.ReactControl<IInputs, IO
                 end: end ? (override ? (override.end ? dateForWrite(override.end, false) : null) : record.getValue(end.name)) : null,
                 colorValue: color ? record.getValue(color.name) : null,
                 colorLabel: color ? record.getFormattedValue(color.name) : null,
+                parent: parent ? record.getValue(parent.name) : null,
+                dependsOn: dependsOn ? record.getValue(dependsOn.name) : null,
             });
         }
 

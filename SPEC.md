@@ -48,15 +48,114 @@ released.
 
 | | Question | Right way | If it goes the wrong way | Measured |
 | --- | --- | --- | --- | --- |
-| G1 | Bind `parentField` → `cll_parenttask` and `dependsOnField` → `cll_dependson` on the subgrid (form XML), publish. Passive: the two columns on `dataset.columns` — `alias`, `name`, `dataType`, `order` | Publish succeeds; both arrive, `dataType` `Lookup.Simple`, found by alias | A role that cannot be bound is not shipped: no tree without G1 for Parent, no arrows without it for Depends on | |
-| G2 | Passive: `getValue` / `getFormattedValue` of both lookups on every loaded row, and whether the referenced id is loaded | `{ etn, id: { guid }, name }`, GUID bare and lower-case, `name` present **even when the target row is not loaded** (*Write course* → *Training*) | No `name` for an unloaded target: the header row and "After ‹name›" say "(not loaded)" instead, or the control reads the names itself — decided then | |
-| G3 | Passive: is a role column that is **not in the view** fetched? (the subgrid's view has neither lookup) | Values present, `order` −1 — as `pcf-chart-view` measured for a property-set column | The docs say "add both columns to the view", and the control says so when it finds the role bound and every value empty | |
-| G4 | Move a *Plan:* task a day later through the record route (the 0.3.4 menu), then `lookups()` on the passes after the `save()` | Both lookups still on the row | The tree and arrows flicker after every move; the control keeps the last values it read per record until a fetch that agrees | |
-| G5 | `span("2026-10-01", "2026-12-31")`: the window filter over a quarter, loaded to the last page, against a Web API count of the same condition under the same account | Equal counts; the nested `Or` still honoured over 92 days | Quarter ships, and the control loads pages until the quarter is whole — or it is cut | |
-| G6 | Passive: `timelineSpan` set static `quarter` in the form XML | `raw` is `"quarter"` | — | |
+| G1 | Bind `parentField` → `cll_parenttask` and `dependsOnField` → `cll_dependson` on the subgrid (form XML), publish. Passive: the two columns on `dataset.columns` — `alias`, `name`, `dataType`, `order` | Publish succeeds; both arrive, `dataType` `Lookup.Simple`, found by alias | A role that cannot be bound is not shipped: no tree without G1 for Parent, no arrows without it for Depends on || **Right way, 27 Oct.** The form published on all three form factors with no error. `dataset.columns` carries `{ alias: "parentField", name: "cll_parenttask", dataType: "Lookup.Simple", order: -1 }` and the same for `dependsOnField` → `cll_dependson` — after the four roles bound before them, ahead of the view's own columns, and with no `isHidden` key (the view's columns carry `isHidden: false`) |
+| G2 | Passive: `getValue` / `getFormattedValue` of both lookups on every loaded row, and whether the referenced id is loaded | `{ etn, id: { guid }, name }`, GUID bare and lower-case, `name` present **even when the target row is not loaded** (*Write course* → *Training*) | No `name` for an unloaded target: the header row and "After ‹name›" say "(not loaded)" instead, or the control reads the names itself — decided then || **Right way, 27 Oct.** `getValue`: `{ etn: "cll_event", id: { guid: "4b2daa24-1fd2-f111-a05b-6045bd06056e" }, name: "Plan: Training" }` — bare, lower-case; `getFormattedValue`: `"Plan: Training"`. `name` is there for an unloaded target: *Write course* and *Pilot session* → *Training* (January, never loaded), and in November *Build* → *Design* (ended 16 Oct, outside the window). Unset: both `null` |
+| G3 | Passive: is a role column that is **not in the view** fetched? (the subgrid's view has neither lookup) | Values present, `order` −1 — as `pcf-chart-view` measured for a property-set column | The docs say "add both columns to the view", and the control says so when it finds the role bound and every value empty || **Right way, 27 Oct.** Neither lookup is in *Active Events*; both are fetched on every row, `order` −1 |
+| G4 | Move a *Plan:* task a day later through the record route (the 0.3.4 menu), then `lookups()` on the passes after the `save()` | Both lookups still on the row | The tree and arrows flicker after every move; the control keeps the last values it read per record until a fetch that agrees || **Right way, 27 Oct.** *Go live* moved 16 → 17 Nov by `setValue` + `save()`, which resolved `{ etn: "cll_event", id: { guid: "492daa24-…" }, name: undefined }`. At +0, +5 and +15 s the row — on a new dataset object — still carried *Website launch* and *Test*. `restore` put back `2026-11-16T15:00:00Z` – `23:00:00Z`, read back through the Web API |
+| G5 | `span("2026-10-01", "2026-12-31")`: the window filter over a quarter, loaded to the last page, against a Web API count of the same condition under the same account | Equal counts; the nested `Or` still honoured over 92 days | Quarter ships, and the control loads pages until the quarter is whole — or it is cut || **Right way, 27 Oct.** Pages of 4 (the subgrid's own page size): 4, 8, 12, 15, then `hasNextPage` false, and still 15 ten seconds later. The Web API count of the same condition under the account: **15**. (That count has no state condition and the view keeps *Active* only; they agree here) |
+| G6 | Passive: `timelineSpan` set static `quarter` in the form XML | `raw` is `"quarter"` | — || **Right way, 27 Oct.** `{ type: "Enum", raw: "quarter", formatted: null }` |
 
 After G4: `restore(id)` puts the record back as it was before the probe
 touched it.
+
+### Answered, 27 October 2026 — nothing is cut
+
+Read in the browser pane on the account's Information form, Events tab, with
+`window.__pcfCalendarViewProbe.version` `"0.3.5-probe"`. All six went the right
+way, so the tree, the arrows, the conflict mark and the quarter all ship as
+planned. What each answer settles for the build:
+
+- **G1, G3.** A role is found by alias, as the four before it, and needs no
+  column in the view. The docs do not ask makers to add the lookups to the
+  view, and the control has no "add the columns" message to show.
+- **G2.** One reader, `referenceOf(raw)`, takes `id.guid` bare and lower-case
+  and `name` as it comes. A header row and "After ‹name›" use the lookup's own
+  `name` — never "(not loaded)", and the control fetches no names itself.
+- **G4.** The tree and arrows rest on each pass's values; nothing is kept per
+  record across a save.
+- **G5.** The quarter uses today's window filter and today's *Load more*. On
+  this subgrid the host's page size is 4, so the October quarter took four
+  pages; the existing "N loaded — there are more in this range" line covers
+  it, and a maker who wants the quarter whole sets *Page size*.
+- **G6.** `timelineSpan` is compared with `"quarter"`; anything else is Month.
+
+Seen on the way, not asked: the probe's first pass carried the host's page
+(4 of 28, no filter) before the control's own window reached the platform.
+
+### Built, 27 October 2026
+
+The probe and its hooks are gone. The pure half is in `calendar.ts`:
+`referenceOf` (G2's shape, an `id` string or an array taken too), `planRows`
+(tree order, header rows, a parent loop cut at its earliest row),
+`finishOf` / `beginningOf` (a whole day runs to the midnight after it),
+`dependencyLinks` (a link only where both ends are in the list; none to
+itself), `newConflicts`, `linkPath` (right angles; the conflict route turns
+between the two rows and comes in from the start side; RTL mirrored), and a
+`Span` on `timelineDays`, `visibleRange` and `stepAnchor`. The component's
+`Timeline` draws rows from `planRows` inside `role="row"` wrappers with
+`display: contents`, measures the bars in a `useLayoutEffect` on every render
+(state changes only when a path does), and announces a move into a conflict
+in a polite live region. `index.ts` reads both roles by alias and passes the
+raw lookups down; the write routes are untouched.
+
+What the build decided that the plan had not:
+
+- **A tree only where the range holds one.** With Parent bound and no
+  parent in range (the September presets) the timeline stays a `grid` with
+  no chevron room — otherwise every installed timeline that binds Parent
+  would have gained an empty indent in every month without a plan.
+- **No resize handles on a bar under 32px.** A quarter's one-day bar is
+  16px and its two 8px handles covered all of it: it could be resized and
+  never moved. The ⋯ menu still resizes it.
+- **No badge in a tree, and a 220px label column** (140px narrow). The
+  first demo picture showed "Webs…", "De…" and "W": the indent took the
+  badge's room. The bar's edge still carries the option's colour. The
+  conflict note carries its text as a `title` too, for the cut-off case.
+- **An event that names itself** as its own predecessor says nothing; the
+  first smoke run caught it saying *After Self*.
+
+The rig: `fixture.plan` (twelve rows — three levels, an unloaded parent,
+the conflict, the exact-minute boundary, a two-way loop, a self-reference)
+bound on its own, so the September counts are unchanged; 25 new smoke
+checks (187); two mutants — the conflict's `<` as `<=`, and the loaded
+parent test inverted — each failed a dozen of them. `dev/clicks.js` gained
+the Project plan preset: four arrows measured, a drag out of the conflict
+written (`p09`), a drag into one announced, collapse and expand, a quarter
+step — 18 of 18. On the way it found its own fault: its drag moves sent
+`buttons: 1` without `button: 'left'`, which Chrome takes for a hover and
+which drops pointer capture, so any bar the pointer outran stopped (the
+0.3.5 build stopped the same way). Real input carries the button. The
+preview turns a demo `_<column>_value` into the reference, as the hub does,
+and takes `?span=quarter` and `?rtl=1`. `npm run demo-check`: seven presets
+clean, Project plan among them.
+
+Seen and left alone: in right-to-left the sticky label column is clipped at
+its right edge by about a scrollbar's width, titles and all. September's
+timeline at 0.3.5 does the same, so it is older than the plan; it is not
+fixed here.
+
+### The walkthrough — 0.4.0 on the form, 27 October 2026
+
+0.4.0 imported and published on the test environment; `customcontrols` read
+`pcfhub_PCFHub.CalendarView 0.4.0` and `window.__pcfCalendarViewProbe` was
+gone. The account's Information form, Events tab, the main events subgrid
+(Parent, Depends on and Quarter bound since the probe). Read from the DOM in
+the browser pane.
+
+| | What | Seen |
+| --- | --- | --- |
+| W1 | Timeline, the October quarter, every page loaded | *October – December 2026*, a `treegrid`, three *Load more* at the subgrid's 4 a page. *Website launch* › *Design* › *Wireframes*, then *Build*, *Test*, *Go live* at level 2; *Training* (January) a header with one bracket over *Write course* and *Pilot session*; the six unplanned events at level 1 among them. *Build*, *Test*, *Go live* carry *After …* for a screen reader; *Pilot session* says *Starts before Plan: Write course ends* |
+| W2 | Collapse *Website launch*, expand it | Five rows and three of the four arrows go, the row reads `aria-expanded="false"`; all back on expand. The button is labelled *Collapse Plan: Website launch* |
+| W3 | The arrows against the bars | Four paths, each from its predecessor's right edge to its task's left edge (*Design* ends at 538, `M538 136H546V200H582`, *Build* starts at 582); the conflict dashed `4px, 3px` in `rgb(188, 47, 50)`, the platform's red |
+| W4 | *Test* three days earlier from its ⋯ menu — the write a drop makes | No conflict at one and two days; at three (6 November, *Build* ends that evening) the second red arrow, *Starts before Plan: Build ends*, and the live region: *Plan: Test now starts before Plan: Build ends.* The record read `2026-11-06T15:00:00Z`–`11-10T23:00Z` with both lookups on it. Three *A day later* put back `11-09T15:00Z`–`11-13T23:00Z` exactly |
+| W5 | Next, Previous twice, Today | *January – March 2027*: 90 days, three month names, *Training* a plain row in a `grid`. *July – September 2026*: 92 days, 13 rows, a `grid`. Today: the October quarter again, 15 rows, 4 arrows, 1 conflict |
+| W6 | A subgrid with neither role bound | **Not walked.** The form carries Calendar View on this one subgrid now — the *Kind ≠ Meeting* subgrid no longer has it. Covered by smoke, and by W5's July quarter: roles bound, no parent in range, the flat grid |
+| W7 | A phone (375px emulated, phone layout) | The control got 331px: narrow, a 140px label column, 16px days, the quarter scrolling sideways; 15 rows, 4 arrows, 1 conflict. One page loaded the quarter there. *Pilot session*'s one-day bar has no handles, *Build*'s has both |
+| W8 | The version, and the test data | `customcontrols` 0.4.0, no probe; all nine *Plan:* events on their original dates |
+
+Drags were not made by hand on the form — the pane cannot draw while
+hidden. The pointer path is `dev/clicks.js`'s, real mouse input in the hub's
+harness (18 of 18); the form walked the write it ends in.
 
 ## 0.3.0 — an hour grid (probe 0.2.5, 4 October 2026)
 
@@ -391,6 +490,15 @@ It was checked with 0.2.3's published bundle against that harness:
 - at five events per fetch, "5 loaded — there are more in this range" and
   Load more went 5, 10, 13.
 
+From 0.4.0 the fixture binds `parentField` and `dependsOnField` to two
+lookups from `cr123_appointment` to itself, declared as one-to-many
+relationships so the stand-in Dataverse names each reference from the row it
+points at, and nine plan tasks run from October into January. The September
+presets bind them too, and stay flat: no September event has a parent. The
+**Project plan** preset opens the October quarter (checked with 0.4.0's
+bundle, 27 October: four arrows, Pilot session's red until dragged past
+20 November, Staff training a header over its two tasks).
+
 ## 0.3.4: a menu left open over the header
 
 pcf-lookup-search 0.3.0 was reported with its list riding up over the form's
@@ -459,7 +567,8 @@ nothing to drop on* there (0.40.1 marks it measured).
 picture in `media/` from `dev/preview.html` with the harness serving on 8094:
 the demo fixture, the week of 14 September 2026 at UTC−5, 760px, device scale
 2 — month, week list, timeline with a day pressed, and from 0.3.0 the hour
-grid's week, day and a 373px column. `npm run shots -- hours` takes the
-hour grid's alone. New file names whenever a picture changes — the hub's
+grid's week, day and a 373px column; from 0.4.0 the October quarter as a
+plan at 1,400px (`screenshot-plan-quarter.png`, `?span=quarter`). `npm run
+shots -- hours` takes the hour grid's alone, `-- plan` the plan's. New file names whenever a picture changes — the hub's
 mirror never re-fetches a path, and the run says when a published name
 changed.

@@ -103,6 +103,26 @@ A one-day bar is too narrow for a title, so it is drawn as a plain chip and
 the title stays in the row's label on the left, which never scrolls away.
 Bars two days or wider carry the time and the title.
 
+## Can the timeline show dependencies?
+
+From 0.4.0, yes: bind **Depends on** to a lookup from the table to itself,
+and an arrow runs from each task's predecessor's end to its start. One
+predecessor per task, finish to start. Bind **Parent** as well to group the
+rows as a plan. See [Model-driven apps](model-driven.md#a-light-gantt-on-the-timeline).
+
+## Why is there no arrow to a task that has a Depends on?
+
+The arrow needs both bars on screen. When the predecessor is in another
+month or quarter, or under a collapsed parent, the task's row says *After
+‹name›* instead. Step to the range that holds both, or expand the parent.
+
+## A task's label is red
+
+It starts before the task it depends on is over — *Starts before ‹name›
+ends*. Nothing is moved for you; drag either bar, or change the dates on the
+form, and the mark goes when the order is right again. A task may start the
+same minute its predecessor ends.
+
 ## Why does the week start on Sunday for me and Monday for a colleague?
 
 **Week starts on** is *Auto*, which follows each user's personal options —

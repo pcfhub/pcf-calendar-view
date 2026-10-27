@@ -73,10 +73,13 @@ function check(label, ok, detail) {
 
         if (to !== at) {
             for (let step = 1; step <= 6; step += 1) {
+                // `button` as well as `buttons`: without it Chrome takes the move for a hover and drops the
+                // bar's pointer capture, and a bar the pointer outruns — a quarter's 16px one — stops (2026-10-27).
                 await chrome.send('Input.dispatchMouseEvent', {
                     type: 'mouseMoved',
                     x: at.x + ((to.x - at.x) * step) / 6,
                     y: at.y + ((to.y - at.y) * step) / 6,
+                    button: 'left',
                     buttons: 1,
                     pointerType: 'mouse',
                 });
@@ -163,6 +166,75 @@ function check(label, ok, detail) {
         const dialog = await chrome.inFrame(HARNESS, "Boolean(document.querySelector('[role=dialog]'))");
 
         check('pressing a free slot opens the quick create', dialog, '');
+
+        /*
+         * 6. The plan (0.4.0), on the Project plan preset: the arrows are
+         * measured from the bars after the render, which no static render
+         * runs, and a drag moves both a bar and its arrows.
+         */
+        const planState = () => chrome.inFrame(HARNESS, `(() => ({
+            heading: document.querySelector('.CalendarView-heading').textContent,
+            links: document.querySelectorAll('.CalendarView-tlLink').length,
+            conflicts: document.querySelectorAll('.CalendarView-tlLink.is-conflict').length,
+            paths: [...document.querySelectorAll('.CalendarView-tlLink')].every((p) => /^M[\\d.]+ [\\d.]+H/.test(p.getAttribute('d'))),
+            rows: [...document.querySelectorAll('.CalendarView-tlLabel .CalendarView-eventTitle')].map((n) => n.title),
+            said: (document.querySelector('.CalendarView-srOnly[aria-live]') || {}).textContent || '',
+            dayWidth: document.querySelector('.CalendarView-tlHead').getBoundingClientRect().width,
+        }))()`);
+        const barOf = async (title) => {
+            const id = await chrome.inFrame(HARNESS, `(() => { const label = [...document.querySelectorAll('.CalendarView-tlLabel')].find((l) => l.querySelector('[title=${JSON.stringify(title)}]')); const row = label && label.parentElement; const bar = row && row.querySelector('.CalendarView-tlBar'); return bar ? bar.dataset.event : null; })()`);
+
+            return id ? centre(`.CalendarView-tlBar[data-event="${id}"]`) : null;
+        };
+
+        await open('project-plan');
+        await sleep(800);
+
+        const plan = await planState();
+
+        check('project plan: a quarter, October to December', /October – December 2026/.test(plan.heading), plan.heading);
+        check('the tree reads parent first, children under it, and the January parent as a header', plan.rows.slice(0, 9).join(' | ') === 'Website relaunch | Design | Wireframes | Build | Test | Go live | Staff training | Write the course | Pilot session', plan.rows.join(' | '));
+        check('four arrows are measured and drawn, one of them the conflict', plan.links === 4 && plan.conflicts === 1 && plan.paths, `${plan.links} links, ${plan.conflicts} conflict`);
+
+        // Pilot session three days later — past the end of Write the course — and the conflict is gone.
+        const pilot = await barOf('Pilot session');
+
+        await press(pilot, { x: pilot.x + plan.dayWidth * 3, y: pilot.y });
+
+        const cleared = await planState();
+
+        check('dragging Pilot session past 20 November clears the conflict', cleared.links === 4 && cleared.conflicts === 0, `${cleared.links} links, ${cleared.conflicts} conflict`);
+        check('and the move was written', (await outputs('movedRecordId')).includes('p09'), JSON.stringify(await outputs('movedRecordId')));
+
+        // Test four days earlier — before Build ends — makes one, and says so.
+        const test = await barOf('Test');
+
+        await press(test, { x: test.x - plan.dayWidth * 4, y: test.y });
+
+        const made = await planState();
+
+        check('dragging Test before Build ends turns its arrow red', made.conflicts === 1, `${made.conflicts} conflict`);
+        check('and the live region says so', /Test now starts before Build ends/.test(made.said), made.said);
+
+        // Collapse the parent: its five tasks go, and every arrow between them with them.
+        const toggle = await chrome.inFrame(HARNESS, "[...document.querySelectorAll('button.CalendarView-tlToggle')].findIndex((b) => b.closest('.CalendarView-tlLabel').querySelector('[title=\"Website relaunch\"]'))");
+
+        await press(await centre('button.CalendarView-tlToggle', toggle));
+
+        const folded = await planState();
+
+        check('collapsing Website relaunch hides its five tasks and their arrows', !folded.rows.includes('Design') && !folded.rows.includes('Go live') && folded.rows.includes('Website relaunch') && folded.links === 1, `${folded.rows.join(' | ')}; ${folded.links} links`);
+
+        await press(await centre('button.CalendarView-tlToggle', toggle));
+        check('and expanding it brings them back', (await planState()).rows.includes('Wireframes'), '');
+
+        // A quarter steps a quarter.
+        await press(await centre('.CalendarView-navArrow', 1));
+        await sleep(800);
+
+        const next = await planState();
+
+        check('Next steps a whole quarter, to January – March 2027, where Staff training is a row of its own', /January – March 2027/.test(next.heading) && next.rows.includes('Staff training'), `${next.heading}: ${next.rows.join(' | ')}`);
     } finally {
         await chrome.close();
     }

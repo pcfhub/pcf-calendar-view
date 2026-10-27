@@ -33,11 +33,15 @@ bound to a column in *your* table — the control never assumes a schema name.
 | Title | The text column shown on the event. | Yes |
 | End | The date column an event ends on, so it spans its days. | No |
 | Colour | A **choice** column whose option colours colour the events. | No |
+| Parent | A **lookup to the same table**: the event this one sits under on the timeline. | No |
+| Depends on | A **lookup to the same table**: the event this one waits for. | No |
 
 :::callout{type=warning}
 **Every column bound to a role must be in the view.** The roles are read
 through the dataset, so a role bound to a column the view does not select
-arrives empty — and an empty Start is no calendar at all.
+arrives empty — and an empty Start is no calendar at all. Parent and Depends
+on are the measured exception: bound on a subgrid whose view had neither,
+both arrived on every row (27 October 2026).
 :::
 
 ## How a date is placed
@@ -91,6 +95,42 @@ The month scrolls sideways inside the control on a narrow form, with the
 titles held in place; the day columns never shrink below a legible width.
 The **+ New** button in the toolbar creates on the day last selected — press
 a day's number in the header — or today.
+
+## A light Gantt on the timeline
+
+From 0.4.0 the timeline reads two more roles, both optional, and draws
+nothing new until one is bound — the month, week and day views ignore them.
+
+1. In your table, add two **lookup** columns whose related table is the
+   table itself — say *Parent task* and *Depends on*. Fill them on the
+   form: each task's parent, and the one task it waits for.
+2. On the subgrid's Calendar View, bind **Parent** to the first and
+   **Depends on** to the second. They do not have to be in the view.
+3. Optionally set **Timeline span** to *Quarter* and **Default view** to
+   *Timeline*.
+
+**With Parent bound** the rows are a tree. A parent that is loaded comes
+first, with its own bar, and its tasks sit under it, indented and in start
+order, as many levels deep as the data goes; the chevron beside a parent
+collapses it. A task whose parent is outside the range sits under a
+**header** named from the lookup, with a bracket over its tasks' span — the
+lookup carries the name even when the row is not loaded, so nothing is
+fetched for it. A loop (A under B under A) is cut at its earliest row.
+
+**With Depends on bound** an arrow runs from the predecessor's end to the
+task's start. A task that starts before its predecessor is over is in
+**conflict**: the arrow turns red and dashed, and the row says *Starts
+before ‹name› ends*. A whole-day predecessor is over at the end of its last
+day; a timed one at its end. Drag a bar and the arrows follow it; drop it
+into a conflict and the move is still written, and a screen reader hears
+that it now starts too early. Nothing else moves. Where the predecessor is
+not on screen — another month, or under a collapsed parent — the row says
+*After ‹name›* instead of an arrow.
+
+**A quarter** is the calendar quarter around the day shown, January, April,
+July or October to the end of the third month. The days are narrower, the
+month names run above them, and only the 1st and each week's first day carry
+a number. **Previous** and **Next** step a quarter at a time.
 
 ## The hour grid
 
@@ -146,7 +186,7 @@ form instead. Turn **Allow create** off to hide the **+** entirely.
 
 The visible range — the whole weeks a month view shows, the seven days of a
 week, the one day of a Day view, or the timeline's month from the 1st to the
-last — is sent to the
+last (its quarter, with **Timeline span** set to *Quarter*) — is sent to the
 dataset as a filter: *Start* on or before the last day,
 and either *End* on or after the first day or *End* empty. Stepping months
 re-filters and refreshes, so the view's own filter still applies and only the

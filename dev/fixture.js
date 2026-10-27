@@ -167,5 +167,60 @@
                 { systemuserid: '00000000-0000-0000-0000-0000000000aa', workdaystarttime: '09:00', workdaystoptime: '18:00', timeformatstring: 'h:mm tt', timezonecode: 20 },
             ],
         },
+
+        /*
+         * 0.4.0's plan, bound on its own (`columns: fixture.columns.concat(
+         * fixture.plan.columns), records: fixture.plan.records`) so the
+         * September suite's counts are untouched. The October quarter, for a
+         * UTC-5 user. A lookup is the `EntityReference` a dataset record hands
+         * over — `{ etn, id: { guid }, name }`, the name there even where the
+         * row it points at is not loaded (SPEC.md G2). Chosen for the edges:
+         *
+         *   - **three levels** (Launch › Design › Wireframes) and a chain of
+         *     dependencies under one parent;
+         *   - **a parent that is not loaded** (Training, January) whose two
+         *     tasks sit under a header row named from the lookup;
+         *   - **a conflict** (Pilot starts before Write course ends), and
+         *     **the boundary** (Handover starts the minute Test ends, which is
+         *     no conflict);
+         *   - **a loop** both ways (Loop A and Loop B are each other's parent
+         *     and predecessor) and **an event that names itself**, neither of
+         *     which may hang the render.
+         */
+        plan: {
+            columns: [
+                { name: 'cll_parent', displayName: 'Parent', dataType: 'Lookup.Simple', alias: 'parentField', order: -1, visualSizeFactor: 150 },
+                { name: 'cll_after', displayName: 'Depends on', dataType: 'Lookup.Simple', alias: 'dependsOnField', order: -1, visualSizeFactor: 150 },
+            ],
+            records: (function () {
+                var names = {
+                    t1: 'Launch', t2: 'Design', t3: 'Wireframes', t4: 'Build', t5: 'Test', t6: 'Training',
+                    t7: 'Write course', t8: 'Pilot', t9: 'Loop A', t10: 'Loop B', t11: 'Self', t12: 'Handover',
+                };
+                var ref = function (id) {
+                    return id ? { etn: 'appointment', id: { guid: id }, name: names[id] } : null;
+                };
+                var row = function (id, start, end, parent, after) {
+                    return { id: id, values: { subject: names[id], scheduledstart: start, scheduledend: end, prioritycode: 1, cll_dueon: null, cll_parent: ref(parent), cll_after: ref(after) } };
+                };
+
+                return [
+                    row('t1', '2026-10-05T14:00:00Z', '2026-11-20T22:00:00Z', null, null),
+                    row('t2', '2026-10-05T14:00:00Z', '2026-10-16T21:00:00Z', 't1', null),
+                    row('t3', '2026-10-05T14:00:00Z', '2026-10-08T21:00:00Z', 't2', null),
+                    row('t4', '2026-10-19T14:00:00Z', '2026-11-06T22:00:00Z', 't1', 't2'),
+                    row('t5', '2026-11-09T14:00:00Z', '2026-11-13T22:00:00Z', 't1', 't4'),
+                    // January: outside the October quarter, never loaded with it.
+                    row('t6', '2027-01-11T14:00:00Z', '2027-01-29T22:00:00Z', null, null),
+                    row('t7', '2026-11-02T14:00:00Z', '2026-11-20T22:00:00Z', 't6', null),
+                    row('t8', '2026-11-18T14:00:00Z', '2026-11-18T22:00:00Z', 't6', 't7'),
+                    row('t9', '2026-12-01T14:00:00Z', '2026-12-01T22:00:00Z', 't10', 't10'),
+                    row('t10', '2026-12-02T14:00:00Z', '2026-12-02T22:00:00Z', 't9', 't9'),
+                    row('t11', '2026-12-07T14:00:00Z', '2026-12-07T22:00:00Z', 't11', 't11'),
+                    // The minute Test ends, under no parent.
+                    row('t12', '2026-11-13T22:00:00Z', '2026-11-13T23:00:00Z', null, 't5'),
+                ];
+            })(),
+        },
     };
 });

@@ -63,13 +63,38 @@ nothing else — there is no keyboard focus on a bar, because the bar is a
 picture of the row's title. Every change a handle makes is also in the
 row's **⋯** menu, a day at a time, which is the keyboard route. A finger on
 a bar drags the bar rather than scrolling the month; scroll from the header
-or the empty cells.
+or the empty cells. A bar narrower than 32 pixels — one day of a quarter —
+has no handles at all, so a press on it always moves it; resize it from the
+menu.
 
-## Not a Gantt chart
+## What the Gantt does not do
 
-The timeline draws one bar per record and nothing between them: no
-dependencies, no progress, no critical path, no grouping into lanes. It is
-the calendar's third view, not a project planner.
+From 0.4.0 the timeline can group tasks under a **Parent** and draw
+finish-to-start arrows from a **Depends on**. It is a light Gantt, and these
+are its edges:
+
+- **One predecessor per task, finish to start.** Depends on is a single
+  lookup. There is no start-to-start or finish-to-finish, no lead or lag,
+  and no second predecessor.
+- **Nothing is rescheduled.** A move that makes a task start before its
+  predecessor ends is written as it is, marked in red and announced; the
+  tasks after it stay where they are. There is no critical path, no
+  progress, no baseline and no resource view.
+- **A conflict is judged between tasks in range.** The predecessor has to be
+  loaded — in the month or quarter on screen — for its end to be known. One
+  outside the range is named in words, *After ‹name›*, and is not judged.
+- **Arrows run only between bars on screen.** A predecessor out of range or
+  under a collapsed parent gets the same words instead of an arrow.
+- **The lookups are read only.** Parent and Depends on are set on the
+  record's form; the control draws them and never writes them.
+- **A parent that is not loaded is a header.** It is named from the lookup,
+  with a bracket over its tasks in range, and has nothing to move or open.
+- **Month or calendar quarter.** *Timeline span* has no week, year or fiscal
+  quarter. A quarter loads the way a month does: a range bigger than a page
+  shows **Load more** (set **Events per fetch** higher for a whole quarter).
+- **Model-driven only, as far as measured.** The two lookups were measured
+  on a model-driven subgrid (SPEC.md, G1–G5); a canvas app binding them has
+  not been tried.
 
 ## The range filter is model-driven only
 
@@ -150,6 +175,7 @@ brand edge.
 
 The hour grid draws a calendar's events against the clock; it does not
 schedule. There are no resource lanes, no availability, no recurrence, and
-no conflict detection — overlapping events are drawn side by side, and
-nothing stops one being moved onto another. For a scheduling board, this is
-not the control.
+no double-booking check — overlapping events are drawn side by side, and
+nothing stops one being moved onto another. (The timeline's red mark is about
+a task and the one it waits for, not about two events at once.) For a
+scheduling board, this is not the control.

@@ -34,6 +34,22 @@
             "alias": "colorField",
             "order": 3,
             "visualSizeFactor": 100
+        },
+        {
+            "name": "cr123_parenttask",
+            "displayName": "Parent",
+            "dataType": "Lookup.Simple",
+            "alias": "parentField",
+            "order": -1,
+            "visualSizeFactor": 150
+        },
+        {
+            "name": "cr123_dependson",
+            "displayName": "Depends on",
+            "dataType": "Lookup.Simple",
+            "alias": "dependsOnField",
+            "order": -1,
+            "visualSizeFactor": 150
         }
     ],
     "records": [
@@ -49,7 +65,16 @@
         { "id": "d10", "values": { "cr123_subject": "Release 2.4", "cr123_starton": "2026-09-24T15:00:00Z", "cr123_endon": null, "cr123_kind": 3 } },
         { "id": "d11", "values": { "cr123_subject": "Consolidated Messenger kickoff, with the whole account team", "cr123_starton": "2026-09-25T09:00:00Z", "cr123_endon": "2026-09-25T10:00:00Z", "cr123_kind": 1 } },
         { "id": "d12", "values": { "cr123_subject": "Audit prep", "cr123_starton": "2026-09-29T13:00:00Z", "cr123_endon": "2026-09-29T14:00:00Z", "cr123_kind": 1 } },
-        { "id": "d13", "values": { "cr123_subject": "Team lunch", "cr123_starton": "2026-09-30T12:00:00Z", "cr123_endon": "2026-09-30T13:00:00Z", "cr123_kind": 4 } }
+        { "id": "d13", "values": { "cr123_subject": "Team lunch", "cr123_starton": "2026-09-30T12:00:00Z", "cr123_endon": "2026-09-30T13:00:00Z", "cr123_kind": 4 } },
+        { "id": "p01", "values": { "cr123_subject": "Website relaunch", "cr123_starton": "2026-10-05T13:00:00Z", "cr123_endon": "2026-11-20T22:00:00Z", "cr123_kind": 1 } },
+        { "id": "p02", "values": { "cr123_subject": "Design", "cr123_starton": "2026-10-05T13:00:00Z", "cr123_endon": "2026-10-16T21:00:00Z", "cr123_kind": 1, "_cr123_parenttask_value": "p01" } },
+        { "id": "p03", "values": { "cr123_subject": "Wireframes", "cr123_starton": "2026-10-05T13:00:00Z", "cr123_endon": "2026-10-08T21:00:00Z", "cr123_kind": 1, "_cr123_parenttask_value": "p02" } },
+        { "id": "p04", "values": { "cr123_subject": "Build", "cr123_starton": "2026-10-19T13:00:00Z", "cr123_endon": "2026-11-06T22:00:00Z", "cr123_kind": 1, "_cr123_parenttask_value": "p01", "_cr123_dependson_value": "p02" } },
+        { "id": "p05", "values": { "cr123_subject": "Test", "cr123_starton": "2026-11-09T14:00:00Z", "cr123_endon": "2026-11-13T22:00:00Z", "cr123_kind": 1, "_cr123_parenttask_value": "p01", "_cr123_dependson_value": "p04" } },
+        { "id": "p06", "values": { "cr123_subject": "Go live", "cr123_starton": "2026-11-16T14:00:00Z", "cr123_endon": "2026-11-16T22:00:00Z", "cr123_kind": 3, "_cr123_parenttask_value": "p01", "_cr123_dependson_value": "p05" } },
+        { "id": "p07", "values": { "cr123_subject": "Staff training", "cr123_starton": "2027-01-11T14:00:00Z", "cr123_endon": "2027-01-29T22:00:00Z", "cr123_kind": 3 } },
+        { "id": "p08", "values": { "cr123_subject": "Write the course", "cr123_starton": "2026-11-02T14:00:00Z", "cr123_endon": "2026-11-20T22:00:00Z", "cr123_kind": 4, "_cr123_parenttask_value": "p07" } },
+        { "id": "p09", "values": { "cr123_subject": "Pilot session", "cr123_starton": "2026-11-18T14:00:00Z", "cr123_endon": "2026-11-18T22:00:00Z", "cr123_kind": 2, "_cr123_parenttask_value": "p07", "_cr123_dependson_value": "p08" } }
     ],
     "dataverse": {
         "tables": {
@@ -71,6 +96,10 @@
                     }
                 }
             }
-        }
+        },
+        "relationships": [
+            { "kind": "oneToMany", "schemaName": "cr123_appointment_parenttask", "referencedEntity": "cr123_appointment", "referencingEntity": "cr123_appointment", "referencingAttribute": "cr123_parenttask", "referencingNavigationProperty": "cr123_ParentTask" },
+            { "kind": "oneToMany", "schemaName": "cr123_appointment_dependson", "referencedEntity": "cr123_appointment", "referencingEntity": "cr123_appointment", "referencingAttribute": "cr123_dependson", "referencingNavigationProperty": "cr123_DependsOn" }
+        ]
     }
 }

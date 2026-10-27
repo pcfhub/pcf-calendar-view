@@ -39,6 +39,8 @@
     ?move=0                hide the move affordances
     ?width=700             the width the host allocates (default: the window's)
     ?dark=1                a host publishing a dark theme (the stub's small token set)
+    ?rtl=1                 a right-to-left user
+    ?span=quarter          the timeline over the calendar quarter (0.4.0's timelineSpan)
     ?shrink=1              a shrink-to-fit host, as a form section is: #root sizes to its content
                            (pcf-chart-view's switch; the hour grid shrank to ~600px on the form, 5 Oct)
 -->
@@ -111,6 +113,30 @@
             var response = await fetch('../demo/records.json');
 
             fixture = await response.json();
+
+            /*
+              The hub's stand-in Dataverse turns a fixture's `_<column>_value`
+              into the reference a form hands over, named from the row it
+              points at (0.4.0's Parent and Depends on). The rig's host hands
+              values over as they are stored, so the turn is made here.
+            */
+            var lookups = (fixture.columns || []).filter(function (column) { return /^Lookup\./.test(column.dataType); }).map(function (column) { return column.name; });
+            var primary = ((fixture.dataverse || {}).tables || {})[fixture.targetEntityType];
+            var byId = {};
+
+            fixture.records.forEach(function (row) { byId[row.id.toLowerCase()] = row; });
+            fixture.records = fixture.records.map(function (row) {
+                var values = Object.assign({}, row.values);
+
+                lookups.forEach(function (name) {
+                    var raw = values['_' + name + '_value'];
+                    var target = raw ? byId[String(raw).toLowerCase()] : null;
+
+                    values[name] = target ? { etn: fixture.targetEntityType, id: { guid: String(raw).toLowerCase() }, name: target.values[primary ? primary.primaryName : 'name'] } : null;
+                });
+
+                return Object.assign({}, row, { values: values });
+            });
         }
 
         var number = function (name) {
@@ -134,6 +160,7 @@
             width: number('width') !== null ? number('width') : root.clientWidth,
             pageSize: 50,
             dark: dark,
+            rtl: params.get('rtl') === '1',
             tokenTheme: dark ? window.__harnessFluent.webDarkTheme : undefined,
             userTimeZoneOffset: number('zone'),
             inputs: {
@@ -146,6 +173,7 @@
                 showTimes: true,
                 hourGrid: params.get('hours') === '1',
                 slotMinutes: params.get('step') || '30',
+                timelineSpan: params.get('span') === 'quarter' ? 'quarter' : 'month',
             },
         });
 

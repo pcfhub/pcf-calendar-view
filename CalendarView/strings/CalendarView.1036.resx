@@ -341,4 +341,19 @@
   <data name="TimelineSpan_Quarter" xml:space="preserve">
     <value>Trimestre</value>
   </data>
+  <data name="CalendarView_Collapse" xml:space="preserve">
+    <value>Réduire {0}</value>
+  </data>
+  <data name="CalendarView_Expand" xml:space="preserve">
+    <value>Développer {0}</value>
+  </data>
+  <data name="CalendarView_After" xml:space="preserve">
+    <value>Après {0}</value>
+  </data>
+  <data name="CalendarView_StartsBefore" xml:space="preserve">
+    <value>Commence avant la fin de {0}</value>
+  </data>
+  <data name="CalendarView_ConflictNow" xml:space="preserve">
+    <value>{0} commence maintenant avant la fin de {1}.</value>
+  </data>
 </root>

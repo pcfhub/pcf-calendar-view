@@ -242,6 +242,11 @@
         CalendarView_MoveLaterMinutes: "{0} minutes later",
         CalendarView_EndEarlierMinutes: "End {0} minutes earlier",
         CalendarView_EndLaterMinutes: "End {0} minutes later",
+        CalendarView_Collapse: "Collapse {0}",
+        CalendarView_Expand: "Expand {0}",
+        CalendarView_After: "After {0}",
+        CalendarView_StartsBefore: "Starts before {0} ends",
+        CalendarView_ConflictNow: "{0} now starts before {1} ends.",
     };
     var HOSTS = {
         'model-driven': { label: 'model-driven form', publishesTheme: true },

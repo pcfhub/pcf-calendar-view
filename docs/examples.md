@@ -114,6 +114,30 @@ started last month is clipped at the 1st with no left edge to take hold of —
 step back a month to move its start. The **+ New** in the toolbar opens the
 quick create for the selected day.
 
+## A project plan, as a light Gantt
+
+Tasks on a project form, each under its phase and each waiting for one
+other task.
+
+| Property | Value |
+| --- | --- |
+| Start | `cr123_starton` |
+| End | `cr123_endon` |
+| Title | `cr123_name` |
+| Parent | `cr123_parenttask` (a lookup to the task table itself) |
+| Depends on | `cr123_dependson` (another lookup to the task table) |
+| Default view | Timeline |
+| Timeline span | Quarter |
+| Events per fetch | 100 |
+
+The quarter opens with each phase first and its tasks under it, an arrow
+from every task to the one waiting for it. A task pulled earlier than its
+predecessor's end shows a red, dashed arrow and *Starts before ‹name› ends*;
+the plan is not rescheduled around it, so whoever moved it decides what moves
+next. A phase that starts next quarter still heads its tasks that start in
+this one, by its name. **Events per fetch** is raised so a busy quarter loads
+whole, without **Load more**.
+
 ## Driving a gallery from the selected day
 
 In a canvas app, bind the calendar to a filtered data source and read

@@ -341,4 +341,19 @@
   <data name="TimelineSpan_Quarter" xml:space="preserve">
     <value>四半期</value>
   </data>
+  <data name="CalendarView_Collapse" xml:space="preserve">
+    <value>{0} を折りたたむ</value>
+  </data>
+  <data name="CalendarView_Expand" xml:space="preserve">
+    <value>{0} を展開</value>
+  </data>
+  <data name="CalendarView_After" xml:space="preserve">
+    <value>{0} の後</value>
+  </data>
+  <data name="CalendarView_StartsBefore" xml:space="preserve">
+    <value>{0} の終了前に開始</value>
+  </data>
+  <data name="CalendarView_ConflictNow" xml:space="preserve">
+    <value>{0} は {1} の終了前に開始するようになりました。</value>
+  </data>
 </root>

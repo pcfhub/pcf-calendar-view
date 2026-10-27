@@ -524,9 +524,19 @@ button.CalendarView-eventTitle:focus-visible {
   title a bar carried and made a month 6,400px wide (measured 2026-09-17).
 */
 .CalendarView-tlGrid {
+    /* Relative for the arrow layer (0.4.0), which is laid over the whole grid. */
+    position: relative;
     display: grid;
     grid-auto-rows: var(--CalendarView-tlRow);
     width: 100%;
+}
+
+/*
+  0.4.0: each row is a role="row" wrapper that lays out as nothing, so its
+  label, cells and bar stay items of the one grid above.
+*/
+.CalendarView-tlRow {
+    display: contents;
 }
 
 .CalendarView-tlCorner,
@@ -755,6 +765,215 @@ button.CalendarView-eventTitle:focus-visible {
 .CalendarView--narrow .CalendarView-tlLabel .CalendarView-eventBadge,
 .CalendarView--narrow .CalendarView-tlBar .CalendarView-eventTime {
     display: none;
+}
+
+/* ------------------------------------------------------- the plan (0.4.0) */
+
+/*
+  A tree: each level indented by the chevron's width, the chevron (or the
+  room for one) first. The indent is a variable the component sets per row.
+*/
+.CalendarView-timeline[role='treegrid'] {
+    --CalendarView-tlLabel: 220px;
+}
+
+.CalendarView--narrow .CalendarView-timeline[role='treegrid'] {
+    --CalendarView-tlLabel: 140px;
+}
+
+.CalendarView-timeline[role='treegrid'] .CalendarView-tlLabel {
+    padding-inline-start: calc(var(--spacingHorizontalXS, 4px) + var(--CalendarView-tlLevel, 0) * 14px);
+}
+
+/*
+  In a tree the indent takes the room the badge had, and the badge left a
+  third-level title one letter long (the demo's "W" for Wireframes). The
+  bar's leading edge still carries the option's colour.
+*/
+.CalendarView-timeline[role='treegrid'] .CalendarView-tlLabel .CalendarView-eventBadge {
+    display: none;
+}
+
+.CalendarView-tlToggle {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--borderRadiusSmall, 2px);
+    background: none;
+    color: var(--colorNeutralForeground3, #616161);
+}
+
+button.CalendarView-tlToggle {
+    cursor: pointer;
+}
+
+button.CalendarView-tlToggle:hover {
+    background-color: var(--colorSubtleBackgroundHover, #f5f5f5);
+}
+
+button.CalendarView-tlToggle:focus-visible {
+    outline: 2px solid var(--colorStrokeFocus2, #000000);
+    outline-offset: -1px;
+}
+
+.CalendarView-tlLabel.is-parent .CalendarView-eventTitle,
+.CalendarView-tlLabel.is-header .CalendarView-eventTitle {
+    font-weight: var(--fontWeightSemibold, 600);
+}
+
+.CalendarView-tlLabel.is-header {
+    color: var(--colorNeutralForeground2, #424242);
+}
+
+/*
+  The title and, under it, what the arrow says in words: two lines in the
+  row's 32px, the second smaller.
+*/
+.CalendarView-tlText {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 14px;
+}
+
+.CalendarView-tlText .CalendarView-eventTitle {
+    flex: none;
+}
+
+.CalendarView-tlNote {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--fontSizeBase100, 10px);
+    line-height: 12px;
+    color: var(--colorNeutralForeground3, #616161);
+}
+
+.CalendarView-tlNote.is-conflict {
+    color: var(--colorPaletteRedForeground1, #b10e1c);
+}
+
+/* A parent that is not loaded: a bracket over its children's span, which nothing takes hold of. */
+.CalendarView-tlBracket {
+    position: relative;
+    z-index: 1;
+    box-sizing: border-box;
+    align-self: center;
+    height: 8px;
+    margin: 0 2px;
+    border: 2px solid var(--colorNeutralForeground3, #616161);
+    border-top-width: 3px;
+    border-bottom: 0;
+    border-radius: var(--borderRadiusSmall, 2px) var(--borderRadiusSmall, 2px) 0 0;
+}
+
+.CalendarView-tlBracket.is-continued {
+    border-inline-start: 0;
+    margin-inline-start: 0;
+}
+
+.CalendarView-tlBracket.is-continuing {
+    border-inline-end: 0;
+    margin-inline-end: 0;
+}
+
+/*
+  The arrows, over the bars and under the sticky labels. A conflict is red
+  and dashed: the dash is what survives forced colours and colour blindness.
+*/
+.CalendarView-tlLinks {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.CalendarView-tlLink {
+    fill: none;
+    stroke: var(--colorNeutralForeground3, #616161);
+    stroke-width: 1.5;
+}
+
+.CalendarView-tlLink.is-conflict {
+    stroke: var(--colorPaletteRedForeground1, #b10e1c);
+    stroke-dasharray: 4 3;
+}
+
+.CalendarView-tlArrowHead {
+    fill: var(--colorNeutralForeground3, #616161);
+}
+
+.CalendarView-tlArrowHead.is-conflict {
+    fill: var(--colorPaletteRedForeground1, #b10e1c);
+}
+
+/*
+  A quarter: narrower days, a band of month names over them, and a number
+  on the 1st and on each week's first day only. Two classes, so the narrow
+  rule above does not widen the days again.
+*/
+.CalendarView-timeline.CalendarView-timeline--quarter {
+    --CalendarView-tlDay: 20px;
+}
+
+.CalendarView--narrow .CalendarView-timeline.CalendarView-timeline--quarter {
+    --CalendarView-tlDay: 16px;
+}
+
+.CalendarView-timeline--quarter .CalendarView-tlGrid {
+    grid-template-rows: 24px;
+}
+
+.CalendarView-timeline--quarter .CalendarView-tlCorner {
+    height: auto;
+}
+
+.CalendarView-timeline--quarter .CalendarView-tlHead {
+    padding: 0;
+}
+
+.CalendarView-timeline--quarter .CalendarView-tlHead .CalendarView-dayNumber {
+    min-width: 0;
+    padding: 0;
+    font-size: var(--fontSizeBase100, 10px);
+}
+
+.CalendarView-tlMonth {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--spacingHorizontalXS, 4px);
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: var(--fontSizeBase200, 12px);
+    font-weight: var(--fontWeightSemibold, 600);
+    color: var(--colorNeutralForeground2, #424242);
+    background-color: var(--colorNeutralBackground3, #f5f5f5);
+    border-inline-start: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+}
+
+/* Read by a screen reader, not drawn: the live region, and "After ‹name›" where the arrow already says it. */
+.CalendarView-srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* ------------------------------------------------------------ hour grid */
@@ -1138,6 +1357,21 @@ button.CalendarView-eventTitle:focus-visible {
     /* The today and weekend tints are backgrounds, which forced colours erase; the header outline above is what survives. */
     .CalendarView-tlBar.is-held {
         outline: 2px solid Highlight;
+    }
+
+    /* The arrows and brackets in the system's text colour; a conflict stays dashed, and its label says so. */
+    .CalendarView-tlLink,
+    .CalendarView-tlLink.is-conflict {
+        stroke: CanvasText;
+    }
+
+    .CalendarView-tlArrowHead,
+    .CalendarView-tlArrowHead.is-conflict {
+        fill: CanvasText;
+    }
+
+    .CalendarView-tlBracket {
+        border-color: CanvasText;
     }
 }
 

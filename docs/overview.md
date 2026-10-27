@@ -10,11 +10,14 @@ A Dataverse view as a month, a week, a day or a timeline, by a date column.
 Drag an event to another day to reschedule it; turn on the **hour grid** and
 Day and Week are drawn against the hours, where an event drags to another
 time and its bottom edge changes how long it runs; on the timeline, drag an
-end of a bar; press **+**, or a free slot, to create one.
+end of a bar, or bind a **Parent** and a **Depends on** and read it as a
+light Gantt; press **+**, or a free slot, to create one.
 
 :::callout{type=warning}
 **Reference example · built with AI.** This control was written with AI (Claude) and tested on a live Dataverse form; its code has not been reviewed line by line. It is published as a worked example and is not maintained — read the source and [SPEC.md](https://github.com/pcfhub/pcf-calendar-view/blob/main/SPEC.md) (what was measured on the form) before you use it. Fixes are not guaranteed.
 :::
+
+::image{src=media/screenshot-plan-quarter.png alt="The October quarter as a light Gantt: Website relaunch over Design, Wireframes, Build, Test and Go live with arrows between them; Staff training, in January, as a header over its two tasks; Pilot session's arrow red and dashed, its label saying it starts before Write the course ends" zoom}
 
 ::image{src=media/screenshot-hours-week.png alt="A week against the hours, opened on the working day: a dentist's appointment, a two-hour review with its range, an interview" zoom}
 
@@ -56,6 +59,13 @@ Three things it does that a subgrid does not:
   the days of the month across and a bar from start to end — the view for a
   month of projects, bookings or campaigns, where *how long* matters as much
   as *when*. Drag an end of a bar and only that column is written.
+- **Reads as a plan** (from 0.4.0). Bind **Parent**, a lookup from the table
+  to itself, and the timeline's rows become a tree — each task under its
+  parent, several levels deep, each parent collapsible; a parent outside the
+  range is a header named from the lookup. Bind **Depends on**, another such
+  lookup, and an arrow runs from each task's predecessor's end to its start,
+  red where it starts too early. Set **Timeline span** to *Quarter* to see
+  three months at once.
 
 ## What it works with
 
@@ -75,4 +85,6 @@ are model-driven only, there is no metadata to read, and no form to open — see
 Not a scheduler. The hour grid draws a team's appointments against the clock,
 but there are no resource lanes, no availability and no conflict checking:
 two events at once are drawn side by side, and nothing stops a third. Nor is
-it a Gantt chart: the timeline draws no dependencies and no critical path.
+it a project planner: the timeline's Gantt is a light one — one predecessor,
+finish to start, and nothing rescheduled for you
+([what it does not do](limitations.md#what-the-gantt-does-not-do)).

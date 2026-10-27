@@ -15,15 +15,21 @@ import {
     CalendarEvent,
     DateNames,
     Format,
+    Link,
+    PlanRow,
+    Rect,
+    Span,
     View,
     Wall,
     allDayRow,
+    bareId,
     clampResize,
     compareDay,
     compareWall,
     dayKey,
     dayName,
     daysBetween,
+    dependencyLinks,
     eventsInRange,
     eventsKey,
     eventsOn,
@@ -31,10 +37,14 @@ import {
     formatTime,
     isUtcMidnight,
     layoutDay,
+    linkPath,
     minuteOfDay,
     monthGrid,
     monthName,
+    newConflicts,
     optionValue,
+    planRows,
+    referenceOf,
     sameDay,
     shiftDays,
     shiftMinutes,
@@ -62,6 +72,9 @@ export interface Row {
     end: unknown;
     colorValue: unknown;
     colorLabel: string | null;
+    /** 0.4.0: the Parent and Depends on roles' raw lookups, `null` where unbound. */
+    parent: unknown;
+    dependsOn: unknown;
 }
 
 /** What `getEntityMetadata` answered about the bound columns. */
@@ -89,6 +102,12 @@ export interface IProps {
     hasTitle: boolean;
     hasEnd: boolean;
     hasColor: boolean;
+    /** 0.4.0: a Parent role is bound — the timeline is a tree. */
+    hasParent: boolean;
+    /** 0.4.0: a Depends on role is bound — the timeline draws arrows. */
+    hasDependsOn: boolean;
+    /** 0.4.0: how much the timeline shows. */
+    timelineSpan: Span;
     /** Whether the host has `dataset.filtering` — without it the calendar shows what the view loaded and says so. */
     canFilter: boolean;
     /** False where the maker turned moving off, or no route on this host can write. */
@@ -163,6 +182,7 @@ const ICONS = {
     chevronLeft: 'M10.35 3.15a.5.5 0 0 1 0 .7L6.21 8l4.14 4.15a.5.5 0 0 1-.7.7l-4.5-4.5a.5.5 0 0 1 0-.7l4.5-4.5a.5.5 0 0 1 .7 0Z',
     chevronRight: 'M5.65 3.15a.5.5 0 0 0 0 .7L9.79 8l-4.14 4.15a.5.5 0 0 0 .7.7l4.5-4.5a.5.5 0 0 0 0-.7l-4.5-4.5a.5.5 0 0 0-.7 0Z',
     add: 'M8 2.5a.5.5 0 0 1 .5.5v4.5H13a.5.5 0 0 1 0 1H8.5V13a.5.5 0 0 1-1 0V8.5H3a.5.5 0 0 1 0-1h4.5V3a.5.5 0 0 1 .5-.5Z',
+    chevronDown: 'M3.15 5.65a.5.5 0 0 1 .7 0L8 9.79l4.15-4.14a.5.5 0 0 1 .7.7l-4.5 4.5a.5.5 0 0 1-.7 0l-4.5-4.5a.5.5 0 0 1 0-.7Z',
 };
 
 function Icon({ path, size }: { path: string; size: number }): React.ReactElement {
@@ -336,6 +356,8 @@ function toEvents(props: IProps, metadata: Metadata): CalendarEvent[] {
             allDay,
             badge: props.hasColor && row.colorLabel ? row.colorLabel : null,
             color: value !== null ? metadata.colors.get(value) ?? null : null,
+            parent: props.hasParent ? referenceOf(row.parent) : null,
+            dependsOn: props.hasDependsOn ? referenceOf(row.dependsOn) : null,
         });
     }
 
@@ -407,7 +429,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
         return () => observer.disconnect();
     }, []);
 
-    const range = React.useMemo(() => visibleRange(view, anchor, firstDay), [view, anchor, firstDay]);
+    const range = React.useMemo(() => visibleRange(view, anchor, firstDay, props.timelineSpan), [view, anchor, firstDay, props.timelineSpan]);
     const rangeKey = `${dayKey(range.first)}|${dayKey(range.last)}`;
 
     /*
@@ -424,7 +446,7 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rangeKey]);
 
-    const events = React.useMemo(() => toEvents(props, metadata), [props.rows, props.hasEnd, props.hasColor, props.startFormat, props.userOffset, metadata]); // eslint-disable-line react-hooks/exhaustive-deps
+    const events = React.useMemo(() => toEvents(props, metadata), [props.rows, props.hasEnd, props.hasColor, props.hasParent, props.hasDependsOn, props.startFormat, props.userOffset, metadata]); // eslint-disable-line react-hooks/exhaustive-deps
     const [overlay, place] = useOptimisticMoves(events);
 
     const placed = React.useMemo(
@@ -494,7 +516,25 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
         props.onSelectDay(day);
     };
 
-    const step = (direction: -1 | 1): void => setAnchor((current) => stepAnchor(view, current, direction));
+    /*
+     * The plan rows whose children are hidden (0.4.0) — here rather than in
+     * the timeline, so a trip to the month view and back keeps them.
+     */
+    const [collapsed, setCollapsed] = React.useState<ReadonlySet<string>>(() => new Set());
+    const toggleRow = (key: string): void =>
+        setCollapsed((current) => {
+            const next = new Set(current);
+
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+
+            return next;
+        });
+
+    const step = (direction: -1 | 1): void => setAnchor((current) => stepAnchor(view, current, direction, props.timelineSpan));
     const goToday = (): void => {
         const today = wallFromKey(props.today);
 
@@ -551,7 +591,9 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
             ? `${dayName(props.names, weekday(anchor), false)} ${anchor.day} ${monthName(props.names, anchor.month)} ${anchor.year}`
             : view === 'week'
                 ? `${range.first.day} ${monthName(props.names, range.first.month)} – ${range.last.day} ${monthName(props.names, range.last.month)} ${range.last.year}`
-                : `${monthName(props.names, anchor.month)} ${anchor.year}`;
+                : view === 'timeline' && props.timelineSpan === 'quarter'
+                    ? `${monthName(props.names, range.first.month)} – ${monthName(props.names, range.last.month)} ${range.last.year}`
+                    : `${monthName(props.names, anchor.month)} ${anchor.year}`;
     const hours = props.hourGrid && (view === 'week' || view === 'day');
 
     const days = view === 'month' ? monthGrid(anchor.year, anchor.month, firstDay) : [weekDays(anchor, firstDay)];
@@ -639,11 +681,13 @@ export function CalendarViewControl(props: IProps): React.ReactElement | null {
                 <Timeline
                     {...props}
                     moving={[...props.moving, ...busy]}
-                    days={timelineDays(anchor)}
+                    days={timelineDays(anchor, props.timelineSpan)}
                     first={range.first}
                     last={range.last}
                     events={eventsInRange(placed, range.first, range.last)}
                     selectedKey={selected ? dayKey(selected) : ''}
+                    collapsed={collapsed}
+                    onToggle={toggleRow}
                     onSelectDay={selectDay}
                     onDrop={move}
                     onResizeEdge={resize}
@@ -963,6 +1007,9 @@ interface ITimelineProps extends IProps {
     events: CalendarEvent[];
     /** The selected day's key, or `''` — the column the + New creates on, marked so the user can see it (form walkthrough W5). */
     selectedKey: string;
+    /** The plan rows whose children are hidden (0.4.0) — kept by the calendar, so a trip to the month view keeps them. */
+    collapsed: ReadonlySet<string>;
+    onToggle: (key: string) => void;
     onDrop: (id: string, days: number) => void;
     onResizeEdge: (id: string, edge: Edge, days: number) => void;
 }
@@ -975,6 +1022,22 @@ interface Drag {
     dayWidth: number;
     length: number;
     days: number;
+}
+
+/** A finish-to-start arrow as drawn: its path in the grid's pixels, and whether it marks a conflict. */
+interface DrawnLink {
+    key: string;
+    d: string;
+    conflict: boolean;
+}
+
+/** Numbers each timeline's arrowhead markers, so two calendars on one form never share an `id`. */
+let linkLayers = 0;
+
+const NOTHING_COLLAPSED: ReadonlySet<string> = new Set();
+
+function sameLinks(a: DrawnLink[], b: DrawnLink[]): boolean {
+    return a.length === b.length && a.every((link, index) => link.key === b[index].key && link.d === b[index].d && link.conflict === b[index].conflict);
 }
 
 /**
@@ -997,6 +1060,14 @@ interface Drag {
  * leaves the bar, and there is no document listener to release: `destroy`
  * owes nothing here. A drag that moved nothing is not a write, and a click
  * that started a drag is not an open.
+ *
+ * **The plan (0.4.0).** Every row is a `role="row"` wrapper laid out as
+ * nothing (`display: contents`), so its cells still sit on the one grid and
+ * a screen reader finds rows where it expects them. With a Parent role bound
+ * the rows come from `planRows` and the grid is a `treegrid`. With a Depends
+ * on role bound, an SVG layer over the grid draws `dependencyLinks` between
+ * bars measured after the render; the label says the same in words, so the
+ * layer is `aria-hidden`. A quarter puts a band of month names over the days.
  */
 function Timeline(props: ITimelineProps): React.ReactElement {
     const { getString, days, first, last, events } = props;
@@ -1004,7 +1075,19 @@ function Timeline(props: ITimelineProps): React.ReactElement {
     const [drag, setDrag] = React.useState<Drag | null>(null);
     const dragged = React.useRef(false);
     const interactive = !props.disabled && props.canMove;
+    const quarter = props.timelineSpan === 'quarter';
+    const firstDay = firstDayOfWeek(props.weekStart, props.names);
+    // A quarter puts a row of month names over the days, and everything under it moves down one.
+    const headRow = quarter ? 2 : 1;
+    const firstRow = headRow + 1;
     const columns = `var(--CalendarView-tlLabel, 180px) repeat(${days.length}, minmax(var(--CalendarView-tlDay, 36px), 1fr))`;
+    const [markers] = React.useState(() => {
+        linkLayers += 1;
+
+        return `CalendarView-arrow-${linkLayers}`;
+    });
+    const [paths, setPaths] = React.useState<DrawnLink[]>([]);
+    const [announcement, setAnnouncement] = React.useState('');
 
     /*
      * How wide a day is, measured — the same ResizeObserver route as the
@@ -1037,6 +1120,89 @@ function Timeline(props: ITimelineProps): React.ReactElement {
 
         return () => observer.disconnect();
     }, [days.length]);
+
+    /** Where an event is drawn this render: moved by the drag in progress, when it is the one held. */
+    const live = (event: CalendarEvent): CalendarEvent =>
+        drag && drag.id === event.id && drag.days !== 0
+            ? shifted(event, { start: drag.edge === 'end' ? 0 : drag.days * DAY, end: drag.edge === 'start' ? 0 : drag.days * DAY })
+            : event;
+    const drawnEvents = events.map(live);
+    const rows = planRows(drawnEvents, props.hasParent ? props.collapsed : NOTHING_COLLAPSED);
+    // A tree only where the range holds one: a month of tasks with no parent in it is the flat timeline it always was.
+    const tree = props.hasParent && rows.some((row) => row.hasChildren);
+    const links = props.hasDependsOn ? dependencyLinks(drawnEvents) : [];
+    const linkTo = new Map(links.map((link) => [link.to, link] as [string, Link]));
+    const shown = new Set(rows.map((row) => row.event?.id ?? ''));
+    const drawn = links.filter((link) => shown.has(link.from) && shown.has(link.to));
+
+    /*
+     * The arrows run between the bars where the browser put them, measured
+     * after the render: a bar's columns are known, its pixels are not (`1fr`
+     * tracks, margins, a label column set by a variable). Every render
+     * measures again, which keeps an arrow on a bar while it is dragged;
+     * the state changes only when a path does, so it settles. The day-width
+     * observer above re-renders on a resize.
+     */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- every render, on purpose: what moved is in the DOM, not in a dependency.
+    React.useLayoutEffect(() => {
+        const grid = gridRef.current;
+
+        if (!grid || drawn.length === 0) {
+            setPaths((current) => (current.length === 0 ? current : []));
+
+            return;
+        }
+
+        const box = grid.getBoundingClientRect();
+        const bars = new Map<string, Rect>();
+
+        Array.from(grid.querySelectorAll<HTMLElement>('.CalendarView-tlBar')).forEach((bar) => {
+            const rect = bar.getBoundingClientRect();
+
+            bars.set(bar.getAttribute('data-event') ?? '', { left: rect.left - box.left, top: rect.top - box.top, width: rect.width, height: rect.height });
+        });
+
+        const next: DrawnLink[] = [];
+
+        for (const link of drawn) {
+            const from = bars.get(link.from);
+            const to = bars.get(link.to);
+
+            if (from && to && from.width > 0 && to.width > 0) {
+                next.push({ key: `${link.from}>${link.to}`, d: linkPath(from, to, props.isRTL), conflict: link.conflict });
+            }
+        }
+
+        setPaths((current) => (sameLinks(current, next) ? current : next));
+    });
+
+    /*
+     * A move that puts an event before its predecessor's end still writes —
+     * nothing blocks and nothing is rescheduled — and is said aloud once, in
+     * a polite live region, because the red on screen is not something a
+     * screen reader user is looking at.
+     */
+    const announce = (id: string, startMinutes: number, endMinutes: number): void => {
+        if (!props.hasDependsOn) {
+            return;
+        }
+
+        const after = events.map((event) => (event.id === id ? shifted(event, { start: startMinutes, end: endMinutes }) : event));
+        const added = newConflicts(dependencyLinks(events), dependencyLinks(after)).find((link) => link.from === id || link.to === id);
+        const named = (eventId: string): string => after.find((event) => event.id === eventId)?.title ?? '';
+
+        setAnnouncement(added ? getString('CalendarView_ConflictNow').replace('{0}', named(added.to)).replace('{1}', named(added.from)) : '');
+    };
+
+    const drop = (id: string, days: number): void => {
+        announce(id, days * DAY, days * DAY);
+        props.onDrop(id, days);
+    };
+
+    const resizeEdge = (id: string, edge: Edge, days: number): void => {
+        announce(id, edge === 'start' ? days * DAY : 0, edge === 'end' ? days * DAY : 0);
+        props.onResizeEdge(id, edge, days);
+    };
 
     const begin = (pointer: React.PointerEvent<HTMLElement>, event: CalendarEvent, edge: Edge | 'move', bar: Bar): void => {
         if (!interactive || pointer.button !== 0) {
@@ -1090,9 +1256,9 @@ function Timeline(props: ITimelineProps): React.ReactElement {
 
         if (!cancelled && drag.days !== 0) {
             if (drag.edge === 'move') {
-                props.onDrop(drag.id, drag.days);
+                drop(drag.id, drag.days);
             } else {
-                props.onResizeEdge(drag.id, drag.edge, drag.days);
+                resizeEdge(drag.id, drag.edge, drag.days);
             }
         }
 
@@ -1104,213 +1270,364 @@ function Timeline(props: ITimelineProps): React.ReactElement {
         gridColumn: span > 1 ? `${column} / span ${span}` : column,
     });
 
-    return (
-        <div className={`CalendarView-timeline${drag ? ' is-dragging' : ''}`} role="grid" aria-label={props.title} aria-rowcount={events.length + 1} aria-colcount={days.length + 1}>
-            <div className="CalendarView-tlGrid" ref={gridRef} style={{ gridTemplateColumns: columns }}>
-                <div className="CalendarView-tlCorner" role="columnheader" style={at(1, 1)}>
-                    {getString('CalendarView_TimelineEvents')}
+    /** The label's indent and the row's tree attributes — only where the rows on screen are a tree. */
+    const indent = (row: PlanRow): React.CSSProperties => (tree ? ({ '--CalendarView-tlLevel': row.level - 1 } as React.CSSProperties) : {});
+    const treeAttributes = (row: PlanRow): Record<string, unknown> =>
+        tree ? { 'aria-level': row.level, 'aria-expanded': row.hasChildren ? row.expanded : undefined } : {};
+
+    const toggle = (row: PlanRow, name: string): React.ReactElement | null => {
+        if (!tree) {
+            return null;
+        }
+
+        if (!row.hasChildren) {
+            // The chevron's room, kept, so titles on one level line up.
+            return <span className="CalendarView-tlToggle" aria-hidden="true" />;
+        }
+
+        return (
+            <button
+                type="button"
+                className="CalendarView-tlToggle"
+                disabled={props.disabled}
+                aria-label={getString(row.expanded ? 'CalendarView_Collapse' : 'CalendarView_Expand').replace('{0}', name)}
+                onClick={(): void => props.onToggle(row.key)}
+            >
+                <Icon path={row.expanded ? ICONS.chevronDown : props.isRTL ? ICONS.chevronLeft : ICONS.chevronRight} size={12} />
+            </button>
+        );
+    };
+
+    const cells = (row: number): React.ReactElement[] =>
+        days.map((day, column) => (
+            <div
+                key={dayKey(day)}
+                role="gridcell"
+                className={`CalendarView-tlCell${dayKey(day) === props.today ? ' is-today' : ''}${dayKey(day) === props.selectedKey ? ' is-selected' : ''}${weekday(day) === 0 || weekday(day) === 6 ? ' is-weekend' : ''}`}
+                style={at(row, column + 2)}
+            />
+        ));
+
+    /*
+     * A parent that is not loaded: its name from the lookup, its children
+     * under it, and a bracket over their span. Nothing to open, move or drag
+     * — the record is not here — so the bracket is a picture only.
+     */
+    const headerRow = (row: PlanRow, gridRow: number): React.ReactElement => {
+        const name = row.header?.name ?? '';
+        const bracket = row.start ? timelineBar({ id: row.key, title: name, start: row.start, end: row.end, allDay: true, badge: null, color: null }, first, last) : null;
+
+        return (
+            <div key={row.key} className="CalendarView-tlRow" role="row" {...treeAttributes(row)}>
+                <div className="CalendarView-tlLabel is-header" role="rowheader" style={{ ...at(gridRow, 1), ...indent(row) }}>
+                    {toggle(row, name)}
+                    <span className="CalendarView-eventTitle" title={name}>
+                        {name}
+                    </span>
                 </div>
 
-                {days.map((day, index) => {
-                    const isToday = dayKey(day) === props.today;
-                    const isSelected = dayKey(day) === props.selectedKey;
-                    const isWeekend = weekday(day) === 0 || weekday(day) === 6;
+                {cells(gridRow)}
 
-                    return (
-                        <div
-                            key={dayKey(day)}
-                            role="columnheader"
-                            className={`CalendarView-tlHead${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}${isWeekend ? ' is-weekend' : ''}`}
-                            data-day={dayKey(day)}
-                            style={at(1, index + 2)}
-                        >
-                            <button
-                                type="button"
-                                className="CalendarView-dayNumber"
-                                disabled={props.disabled}
-                                aria-current={isToday ? 'date' : undefined}
-                                aria-pressed={isSelected}
-                                aria-label={`${dayName(props.names, weekday(day), false)} ${day.day} ${monthName(props.names, day.month)}`}
-                                onClick={(): void => props.onSelectDay(day)}
-                            >
-                                {day.day}
-                            </button>
-                            <span className="CalendarView-tlWeekday" aria-hidden="true">
-                                {dayName(props.names, weekday(day), true)}
-                            </span>
-                        </div>
-                    );
-                })}
-
-                {events.length === 0 && !props.loading && (
-                    <p className="CalendarView-message CalendarView-tlEmpty" style={at(2, 1, days.length + 1)}>
-                        {getString('CalendarView_NoEvents')}
-                    </p>
+                {bracket && (
+                    <div
+                        className={`CalendarView-tlBracket${bracket.continued ? ' is-continued' : ''}${bracket.continuing ? ' is-continuing' : ''}`}
+                        aria-hidden="true"
+                        style={at(gridRow, bracket.startCol + 2, bracket.endCol - bracket.startCol + 1)}
+                    />
                 )}
+            </div>
+        );
+    };
 
-                {events.map((event, index) => {
-                    const row = index + 2;
-                    const busy = props.moving.indexOf(event.id) >= 0;
-                    const live = drag && drag.id === event.id && drag.days !== 0
-                        ? shifted(event, { start: drag.edge === 'end' ? 0 : drag.days * DAY, end: drag.edge === 'start' ? 0 : drag.days * DAY })
-                        : event;
-                    const bar = timelineBar(live, first, last);
-                    // Text only on a bar wide enough to carry it: "S…" is not a title and "9:…" is not a time. The label
-                    // column always has the title, and a bar too narrow for one is a bare chip, the way a Gantt draws a
-                    // milestone. Below 48px nothing; the time joins the title from 120px.
-                    const pixels = bar ? ((bar as Bar).endCol - (bar as Bar).startCol + 1) * dayWidth : 0;
-                    const wide = Boolean(bar) && (dayWidth > 0 ? pixels >= 48 : (bar as Bar).endCol > (bar as Bar).startCol);
-                    const roomForTime = wide && (dayWidth > 0 ? pixels >= 120 : true);
-                    const time = roomForTime && !event.allDay && props.showTimes && !(bar as Bar).continued ? formatTime(event.start, props.names) : null;
-                    const resizable = interactive && props.hasEnd && !busy;
-                    const barClasses = ['CalendarView-tlBar'];
+    const eventRow = (row: PlanRow, event: CalendarEvent, gridRow: number): React.ReactElement => {
+        const busy = props.moving.indexOf(event.id) >= 0;
+        const bar = timelineBar(event, first, last);
+        // Text only on a bar wide enough to carry it: "S…" is not a title and "9:…" is not a time. The label
+        // column always has the title, and a bar too narrow for one is a bare chip, the way a Gantt draws a
+        // milestone. Below 48px nothing; the time joins the title from 120px.
+        const pixels = bar ? ((bar as Bar).endCol - (bar as Bar).startCol + 1) * dayWidth : 0;
+        const wide = Boolean(bar) && (dayWidth > 0 ? pixels >= 48 : (bar as Bar).endCol > (bar as Bar).startCol);
+        const roomForTime = wide && (dayWidth > 0 ? pixels >= 120 : true);
+        const time = roomForTime && !event.allDay && props.showTimes && !(bar as Bar).continued ? formatTime(event.start, props.names) : null;
+        // Two 8px handles need a middle left over to take hold of: a quarter's one-day bar is 16px, all handle,
+        // and could be resized and never moved. Below 32px there are none; the ⋯ menu still resizes it.
+        const resizable = interactive && props.hasEnd && !busy && (dayWidth > 0 ? pixels >= 32 : true);
+        const barClasses = ['CalendarView-tlBar'];
 
-                    if (event.allDay) {
-                        barClasses.push('is-allDay');
-                    }
+        if (event.allDay) {
+            barClasses.push('is-allDay');
+        }
 
-                    if (bar?.continued) {
-                        barClasses.push('is-continued');
-                    }
+        if (bar?.continued) {
+            barClasses.push('is-continued');
+        }
 
-                    if (bar?.continuing) {
-                        barClasses.push('is-continuing');
-                    }
+        if (bar?.continuing) {
+            barClasses.push('is-continuing');
+        }
 
-                    if (busy) {
-                        barClasses.push('is-moving');
-                    }
+        if (busy) {
+            barClasses.push('is-moving');
+        }
 
-                    if (drag && drag.id === event.id) {
-                        barClasses.push('is-held');
-                    }
+        if (drag && drag.id === event.id) {
+            barClasses.push('is-held');
+        }
 
-                    const adjustments: { key: string; label: string; act: () => void }[] = [
-                        { key: 'earlier', label: getString('CalendarView_MoveEarlierDay'), act: (): void => props.onDrop(event.id, -1) },
-                        { key: 'later', label: getString('CalendarView_MoveLaterDay'), act: (): void => props.onDrop(event.id, 1) },
-                    ];
+        /*
+         * What the arrow says, in words: "Starts before ‹name› ends" in red
+         * for a conflict; otherwise "After ‹name›" — on screen where no arrow
+         * can be drawn (the predecessor is out of range or collapsed away),
+         * and for a screen reader only where one is.
+         */
+        const link = linkTo.get(event.id);
+        // An event that names itself waits for nothing, and says nothing.
+        const predecessor = props.hasDependsOn && event.dependsOn && event.dependsOn.id !== bareId(event.id)
+            ? event.dependsOn.name || drawnEvents.find((each) => bareId(each.id) === event.dependsOn?.id)?.title || ''
+            : '';
+        const note = predecessor === ''
+            ? null
+            : link?.conflict
+                ? { text: getString('CalendarView_StartsBefore').replace('{0}', predecessor), className: 'CalendarView-tlNote is-conflict' }
+                : { text: getString('CalendarView_After').replace('{0}', predecessor), className: link && shown.has(link.from) ? 'CalendarView-tlNote CalendarView-srOnly' : 'CalendarView-tlNote' };
 
-                    if (props.hasEnd) {
-                        adjustments.push(
-                            { key: 'start-earlier', label: getString('CalendarView_StartEarlier'), act: (): void => props.onResizeEdge(event.id, 'start', -1) },
-                            { key: 'start-later', label: getString('CalendarView_StartLater'), act: (): void => props.onResizeEdge(event.id, 'start', 1) },
-                            { key: 'end-earlier', label: getString('CalendarView_EndEarlier'), act: (): void => props.onResizeEdge(event.id, 'end', -1) },
-                            { key: 'end-later', label: getString('CalendarView_EndLater'), act: (): void => props.onResizeEdge(event.id, 'end', 1) },
-                        );
-                    }
+        const adjustments: { key: string; label: string; act: () => void }[] = [
+            { key: 'earlier', label: getString('CalendarView_MoveEarlierDay'), act: (): void => drop(event.id, -1) },
+            { key: 'later', label: getString('CalendarView_MoveLaterDay'), act: (): void => drop(event.id, 1) },
+        ];
 
-                    return (
-                        <React.Fragment key={event.id}>
-                            {/*
-                                The row's accessible half. The bar below is a
-                                picture of the same event for a pointer; every
-                                keyboard path — open, move, resize — is here.
-                            */}
-                            <div className="CalendarView-tlLabel" role="rowheader" style={at(row, 1)}>
-                                {props.openOnEventClick ? (
-                                    <button type="button" className="CalendarView-eventTitle" disabled={props.disabled} title={event.title} onClick={(): void => props.onOpenRecord(event.id)}>
-                                        {event.title}
-                                    </button>
-                                ) : (
-                                    <span className="CalendarView-eventTitle" title={event.title}>
-                                        {event.title}
-                                    </span>
-                                )}
+        if (props.hasEnd) {
+            adjustments.push(
+                { key: 'start-earlier', label: getString('CalendarView_StartEarlier'), act: (): void => resizeEdge(event.id, 'start', -1) },
+                { key: 'start-later', label: getString('CalendarView_StartLater'), act: (): void => resizeEdge(event.id, 'start', 1) },
+                { key: 'end-earlier', label: getString('CalendarView_EndEarlier'), act: (): void => resizeEdge(event.id, 'end', -1) },
+                { key: 'end-later', label: getString('CalendarView_EndLater'), act: (): void => resizeEdge(event.id, 'end', 1) },
+            );
+        }
 
-                                {event.badge && <span className="CalendarView-eventBadge">{event.badge}</span>}
+        const title = props.openOnEventClick ? (
+            <button type="button" className="CalendarView-eventTitle" disabled={props.disabled} title={event.title} onClick={(): void => props.onOpenRecord(event.id)}>
+                {event.title}
+            </button>
+        ) : (
+            <span className="CalendarView-eventTitle" title={event.title}>
+                {event.title}
+            </span>
+        );
 
-                                {props.canMove && (
-                                    <EventMenu
-                                        label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
-                                        disabled={props.disabled || busy}
-                                        items={adjustments}
-                                    />
-                                )}
+        return (
+            <div key={row.key} className="CalendarView-tlRow" role="row" {...treeAttributes(row)}>
+                {/*
+                    The row's accessible half. The bar below is a
+                    picture of the same event for a pointer; every
+                    keyboard path — open, move, resize — is here.
+                */}
+                <div className={`CalendarView-tlLabel${row.hasChildren ? ' is-parent' : ''}`} role="rowheader" style={{ ...at(gridRow, 1), ...indent(row) }}>
+                    {toggle(row, event.title)}
 
-                                {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}
+                    {note ? (
+                        <span className="CalendarView-tlText">
+                            {title}
+                            <span className={note.className} title={note.text}>
+                                {note.text}
+                            </span>
+                        </span>
+                    ) : (
+                        title
+                    )}
+
+                    {event.badge && <span className="CalendarView-eventBadge">{event.badge}</span>}
+
+                    {props.canMove && (
+                        <EventMenu
+                            label={getString('CalendarView_MoveEvent').replace('{0}', event.title)}
+                            disabled={props.disabled || busy}
+                            items={adjustments}
+                        />
+                    )}
+
+                    {busy && <span className="CalendarView-eventBusy">{getString('CalendarView_Moving')}</span>}
+                </div>
+
+                {cells(gridRow)}
+
+                {bar && (
+                    <div
+                        className={barClasses.join(' ')}
+                        aria-hidden="true"
+                        data-event={event.id}
+                        data-from={bar.startCol}
+                        data-to={bar.endCol}
+                        style={{ ...at(gridRow, bar.startCol + 2, bar.endCol - bar.startCol + 1), ...(event.color ? { borderInlineStartColor: event.color } : {}) }}
+                        onPointerDown={(pointer): void => begin(pointer, event, 'move', bar)}
+                        onPointerMove={during}
+                        onPointerUp={(pointer): void => finish(pointer, false)}
+                        onPointerCancel={(pointer): void => finish(pointer, true)}
+                        onClick={(): void => {
+                            // A drag that moved is not a click; a press that did not move is.
+                            if (dragged.current) {
+                                dragged.current = false;
+
+                                return;
+                            }
+
+                            if (props.openOnEventClick) {
+                                props.onOpenRecord(event.id);
+                            }
+                        }}
+                    >
+                        {/*
+                            A handle takes only the press. The moves and the
+                            release bubble up to the bar's handlers, which is
+                            where every drag ends — a handle with its own
+                            `onPointerUp` committed the resize once itself and
+                            once more when the event reached the bar, whose
+                            closure still held the drag (found 2026-09-17 in
+                            the harness: one drag, two saves).
+                        */}
+                        {resizable && !bar.continued && (
+                            <span
+                                className="CalendarView-tlHandle is-start"
+                                onPointerDown={(pointer): void => {
+                                    pointer.stopPropagation();
+                                    begin(pointer, event, 'start', bar);
+                                }}
+                            />
+                        )}
+                        {/*
+                            No badge on the bar: a one-day bar is 32px wide, and
+                            the badge took all of it (the screenshot pass showed a
+                            month of "Mee" and "Ever"). It sits in the label cell,
+                            where the month view's chip keeps it too.
+                        */}
+                        {wide && (
+                            <span className="CalendarView-tlBarTitle">
+                                {time && <span className="CalendarView-eventTime">{time}</span>}
+                                {time && ' '}
+                                {event.title}
+                            </span>
+                        )}
+                        {resizable && !bar.continuing && (
+                            <span
+                                className="CalendarView-tlHandle is-end"
+                                onPointerDown={(pointer): void => {
+                                    pointer.stopPropagation();
+                                    begin(pointer, event, 'end', bar);
+                                }}
+                            />
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    // The quarter's month band: one cell per month, over its days.
+    const months: { key: string; month: number; from: number; count: number }[] = [];
+
+    days.forEach((day, index) => {
+        const band = months[months.length - 1];
+
+        if (band && band.month === day.month) {
+            band.count += 1;
+        } else {
+            months.push({ key: `${day.year}-${day.month}`, month: day.month, from: index, count: 1 });
+        }
+    });
+
+    return (
+        <>
+            <div
+                className={`CalendarView-timeline${quarter ? ' CalendarView-timeline--quarter' : ''}${drag ? ' is-dragging' : ''}`}
+                role={tree ? 'treegrid' : 'grid'}
+                aria-label={props.title}
+                aria-rowcount={rows.length + 1}
+                aria-colcount={days.length + 1}
+            >
+                <div className="CalendarView-tlGrid" ref={gridRef} style={{ gridTemplateColumns: columns }}>
+                    {quarter &&
+                        months.map((band) => (
+                            <div key={band.key} className="CalendarView-tlMonth" aria-hidden="true" style={at(1, band.from + 2, band.count)}>
+                                {monthName(props.names, band.month)}
                             </div>
+                        ))}
 
-                            {days.map((day, column) => (
+                    <div className="CalendarView-tlRow" role="row">
+                        <div className="CalendarView-tlCorner" role="columnheader" style={{ gridRow: `1 / span ${headRow}`, gridColumn: 1 }}>
+                            {getString('CalendarView_TimelineEvents')}
+                        </div>
+
+                        {days.map((day, index) => {
+                            const isToday = dayKey(day) === props.today;
+                            const isSelected = dayKey(day) === props.selectedKey;
+                            const isWeekend = weekday(day) === 0 || weekday(day) === 6;
+                            // A quarter's days are too narrow for a number each: the 1st and each week's first day carry one.
+                            const numbered = !quarter || day.day === 1 || weekday(day) === firstDay;
+
+                            return (
                                 <div
                                     key={dayKey(day)}
-                                    role="gridcell"
-                                    className={`CalendarView-tlCell${dayKey(day) === props.today ? ' is-today' : ''}${dayKey(day) === props.selectedKey ? ' is-selected' : ''}${weekday(day) === 0 || weekday(day) === 6 ? ' is-weekend' : ''}`}
-                                    style={at(row, column + 2)}
-                                />
-                            ))}
-
-                            {bar && (
-                                <div
-                                    className={barClasses.join(' ')}
-                                    aria-hidden="true"
-                                    data-event={event.id}
-                                    data-from={bar.startCol}
-                                    data-to={bar.endCol}
-                                    style={{ ...at(row, bar.startCol + 2, bar.endCol - bar.startCol + 1), ...(event.color ? { borderInlineStartColor: event.color } : {}) }}
-                                    onPointerDown={(pointer): void => begin(pointer, event, 'move', bar)}
-                                    onPointerMove={during}
-                                    onPointerUp={(pointer): void => finish(pointer, false)}
-                                    onPointerCancel={(pointer): void => finish(pointer, true)}
-                                    onClick={(): void => {
-                                        // A drag that moved is not a click; a press that did not move is.
-                                        if (dragged.current) {
-                                            dragged.current = false;
-
-                                            return;
-                                        }
-
-                                        if (props.openOnEventClick) {
-                                            props.onOpenRecord(event.id);
-                                        }
-                                    }}
+                                    role="columnheader"
+                                    className={`CalendarView-tlHead${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}${isWeekend ? ' is-weekend' : ''}`}
+                                    data-day={dayKey(day)}
+                                    style={at(headRow, index + 2)}
                                 >
-                                    {/*
-                                        A handle takes only the press. The moves and the
-                                        release bubble up to the bar's handlers, which is
-                                        where every drag ends — a handle with its own
-                                        `onPointerUp` committed the resize once itself and
-                                        once more when the event reached the bar, whose
-                                        closure still held the drag (found 2026-09-17 in
-                                        the harness: one drag, two saves).
-                                    */}
-                                    {resizable && !bar.continued && (
-                                        <span
-                                            className="CalendarView-tlHandle is-start"
-                                            onPointerDown={(pointer): void => {
-                                                pointer.stopPropagation();
-                                                begin(pointer, event, 'start', bar);
-                                            }}
-                                        />
-                                    )}
-                                    {/*
-                                        No badge on the bar: a one-day bar is 32px wide, and
-                                        the badge took all of it (the screenshot pass showed a
-                                        month of "Mee" and "Ever"). It sits in the label cell,
-                                        where the month view's chip keeps it too.
-                                    */}
-                                    {wide && (
-                                        <span className="CalendarView-tlBarTitle">
-                                            {time && <span className="CalendarView-eventTime">{time}</span>}
-                                            {time && ' '}
-                                            {event.title}
+                                    <button
+                                        type="button"
+                                        className="CalendarView-dayNumber"
+                                        disabled={props.disabled}
+                                        aria-current={isToday ? 'date' : undefined}
+                                        aria-pressed={isSelected}
+                                        aria-label={`${dayName(props.names, weekday(day), false)} ${day.day} ${monthName(props.names, day.month)}`}
+                                        onClick={(): void => props.onSelectDay(day)}
+                                    >
+                                        {numbered ? day.day : ''}
+                                    </button>
+                                    {!quarter && (
+                                        <span className="CalendarView-tlWeekday" aria-hidden="true">
+                                            {dayName(props.names, weekday(day), true)}
                                         </span>
                                     )}
-                                    {resizable && !bar.continuing && (
-                                        <span
-                                            className="CalendarView-tlHandle is-end"
-                                            onPointerDown={(pointer): void => {
-                                                pointer.stopPropagation();
-                                                begin(pointer, event, 'end', bar);
-                                            }}
-                                        />
-                                    )}
                                 </div>
-                            )}
-                        </React.Fragment>
-                    );
-                })}
+                            );
+                        })}
+                    </div>
+
+                    {events.length === 0 && !props.loading && (
+                        <p className="CalendarView-message CalendarView-tlEmpty" style={at(firstRow, 1, days.length + 1)}>
+                            {getString('CalendarView_NoEvents')}
+                        </p>
+                    )}
+
+                    {rows.map((row, index) => (row.event ? eventRow(row, row.event, index + firstRow) : headerRow(row, index + firstRow)))}
+
+                    {drawn.length > 0 && (
+                        <svg className="CalendarView-tlLinks" aria-hidden="true" focusable="false">
+                            <defs>
+                                <marker id={markers} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+                                    <path className="CalendarView-tlArrowHead" d="M0 0L8 4L0 8Z" />
+                                </marker>
+                                <marker id={`${markers}-conflict`} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+                                    <path className="CalendarView-tlArrowHead is-conflict" d="M0 0L8 4L0 8Z" />
+                                </marker>
+                            </defs>
+                            {paths.map((path) => (
+                                <path
+                                    key={path.key}
+                                    className={`CalendarView-tlLink${path.conflict ? ' is-conflict' : ''}`}
+                                    d={path.d}
+                                    markerEnd={`url(#${markers}${path.conflict ? '-conflict' : ''})`}
+                                />
+                            ))}
+                        </svg>
+                    )}
+                </div>
             </div>
-        </div>
+
+            <p className="CalendarView-srOnly" aria-live="polite">
+                {announcement}
+            </p>
+        </>
     );
 }
 
