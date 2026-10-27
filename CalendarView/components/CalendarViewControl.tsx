@@ -1081,6 +1081,15 @@ function Timeline(props: ITimelineProps): React.ReactElement {
     const headRow = quarter ? 2 : 1;
     const firstRow = headRow + 1;
     const columns = `var(--CalendarView-tlLabel, 180px) repeat(${days.length}, minmax(var(--CalendarView-tlDay, 36px), 1fr))`;
+    /*
+     * The grid is at least as wide as its columns. At the scroll box's width
+     * alone the day tracks overflowed it, and a sticky label cannot travel
+     * past the end of its own grid: scrolled further than the grid's width
+     * less the label, the column scrolled away — a quarter's December, or a
+     * 373px month's last week (measured 27 October 2026). The tracks land
+     * where they did; only the box under them grows.
+     */
+    const gridWidth = `calc(var(--CalendarView-tlLabel, 180px) + ${days.length} * var(--CalendarView-tlDay, 36px))`;
     const [markers] = React.useState(() => {
         linkLayers += 1;
 
@@ -1544,7 +1553,7 @@ function Timeline(props: ITimelineProps): React.ReactElement {
                 aria-rowcount={rows.length + 1}
                 aria-colcount={days.length + 1}
             >
-                <div className="CalendarView-tlGrid" ref={gridRef} style={{ gridTemplateColumns: columns }}>
+                <div className="CalendarView-tlGrid" ref={gridRef} style={{ gridTemplateColumns: columns, minWidth: gridWidth }}>
                     {quarter &&
                         months.map((band) => (
                             <div key={band.key} className="CalendarView-tlMonth" aria-hidden="true" style={at(1, band.from + 2, band.count)}>
@@ -1772,6 +1781,8 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
         ? Math.max(240, props.allocatedHeight - 56)
         : 44 + Math.max(1, laneRows) * 24 + 8 + visibleHours * HOUR_PX;
     const columns = `var(--CalendarView-hoursAxis, 56px) repeat(${days.length}, minmax(var(--CalendarView-hoursDay, ${days.length === 1 ? 160 : 72}px), 1fr))`;
+    // At least as wide as its columns, so the sticky axis holds across the whole sideways scroll — the timeline's rule.
+    const gridWidth = `calc(var(--CalendarView-hoursAxis, 56px) + ${days.length} * var(--CalendarView-hoursDay, ${days.length === 1 ? 160 : 72}px))`;
     const at = (row: number, column: number, span = 1): React.CSSProperties => ({
         gridRow: row,
         gridColumn: span > 1 ? `${column} / span ${span}` : column,
@@ -1968,7 +1979,7 @@ function HourGrid(props: IHourGridProps): React.ReactElement {
     return (
         <div className={`CalendarView-hours${drag ? ' is-dragging' : ''}`} role="grid" aria-label={props.title} aria-colcount={days.length + 1}>
             <div className="CalendarView-hoursScroll" ref={scrollRef} style={{ height: `${boxHeight}px` }}>
-                <div className="CalendarView-hoursGrid" style={{ gridTemplateColumns: columns }}>
+                <div className="CalendarView-hoursGrid" style={{ gridTemplateColumns: columns, minWidth: gridWidth }}>
                     <div className="CalendarView-hoursCorner" role="columnheader" style={at(1, 1)} />
 
                     {days.map((day, index) => {

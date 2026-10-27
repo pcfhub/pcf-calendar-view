@@ -860,6 +860,14 @@ check('every row is a role="row" — the header row of days and each plan row', 
 
 check('and the live region a move into a conflict is announced in is there, empty until one is', /<p class="CalendarView-srOnly" aria-live="polite"><\/p>/.test(planMarkup), '');
 
+/*
+ * A sticky start column cannot travel past the end of its own grid, so each
+ * grid is at least as wide as its columns — at the scroll box's width the
+ * labels scrolled away in a quarter's December and a 373px month's last week
+ * (27 October 2026). Where it holds is the browser's; this pins the rule.
+ */
+check('the timeline and the hour grid are at least as wide as their columns, so the sticky start column holds across the whole scroll', /class="CalendarView-tlGrid" style="[^"]*min-width:calc\(var\(--CalendarView-tlLabel, 180px\) \+ 92 \* var\(--CalendarView-tlDay, 36px\)\)/.test(planMarkup) && /class="CalendarView-tlGrid" style="[^"]*min-width:calc\(var\(--CalendarView-tlLabel, 180px\) \+ 30 \* /.test(timelineMarkup) && /class="CalendarView-hoursGrid" style="[^"]*min-width:calc\(var\(--CalendarView-hoursAxis, 56px\) \+ 7 \* /.test(markup(bind({ inputs: { defaultView: 'week', hourGrid: true } }))), (/class="CalendarView-tlGrid" style="[^"]*"/.exec(planMarkup) || [''])[0]);
+
 /* --------------------------------------------- an input changed after init */
 
 /*

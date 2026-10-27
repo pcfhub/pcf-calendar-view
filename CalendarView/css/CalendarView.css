@@ -517,6 +517,18 @@ button.CalendarView-eventTitle:focus-visible {
 }
 
 /*
+  Right to left, Chrome cannot scroll a box with a stable gutter and
+  overflow-y hidden back to its start: scrollLeft stops at minus the
+  gutter's width (-15), and the label column sat 15px past the box's edge,
+  "Events" and every title cut (measured 27 October 2026, 0.3.5 and 0.4.0
+  alike). Without the gutter it reaches 0. Left to right keeps it, so that
+  layout is unchanged.
+*/
+[dir='rtl'] .CalendarView-timeline {
+    scrollbar-gutter: auto;
+}
+
+/*
   Every cell is placed explicitly by the component, so the grid needs no
   auto-flow. Its width is the scroll container's, and the day tracks' 36px
   *minimum* is what overflows it into a sideways scroll on a narrow control
@@ -554,7 +566,7 @@ button.CalendarView-eventTitle:focus-visible {
 
 /* The corner is sticky both ways: it stays over the label column as the days scroll under it. */
 .CalendarView-tlCorner {
-    left: 0;
+    inset-inline-start: 0;
     z-index: 3;
     display: flex;
     align-items: center;
@@ -628,7 +640,7 @@ button.CalendarView-eventTitle:focus-visible {
 */
 .CalendarView-tlLabel {
     position: sticky;
-    left: 0;
+    inset-inline-start: 0;
     z-index: 2;
     box-sizing: border-box;
     display: flex;
@@ -636,7 +648,9 @@ button.CalendarView-eventTitle:focus-visible {
     gap: var(--spacingHorizontalXXS, 2px);
     min-width: 0;
     height: var(--CalendarView-tlRow);
-    padding: 0 var(--spacingHorizontalXS, 4px) 0 var(--spacingHorizontalS, 8px);
+    /* Logical, so right to left mirrors it: the wider side is the start. */
+    padding-block: 0;
+    padding-inline: var(--spacingHorizontalS, 8px) var(--spacingHorizontalXS, 4px);
     background-color: var(--colorNeutralBackground1, #ffffff);
     border-bottom: 1px solid var(--colorNeutralStroke3, #f0f0f0);
     border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
@@ -1025,7 +1039,7 @@ button.CalendarView-tlToggle:focus-visible {
 }
 
 .CalendarView .CalendarView-hours .CalendarView-hoursCorner {
-    left: 0;
+    inset-inline-start: 0;
     z-index: 5;
     border-inline-end: 1px solid var(--colorNeutralStroke2, #e0e0e0);
 }
@@ -1088,7 +1102,7 @@ button.CalendarView-tlToggle:focus-visible {
 }
 
 .CalendarView .CalendarView-hours .CalendarView-allDayLabel {
-    left: 0;
+    inset-inline-start: 0;
     z-index: 4;
     display: flex;
     align-items: center;
@@ -1146,7 +1160,7 @@ button.CalendarView-tlToggle:focus-visible {
 /* The hour labels: sticky at the start so they stay while a week scrolls sideways, each centred on its line. */
 .CalendarView .CalendarView-hours .CalendarView-hoursAxis {
     position: sticky;
-    left: 0;
+    inset-inline-start: 0;
     z-index: 2;
     box-sizing: border-box;
     background-color: var(--colorNeutralBackground1, #ffffff);

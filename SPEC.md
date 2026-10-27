@@ -129,10 +129,44 @@ preview turns a demo `_<column>_value` into the reference, as the hub does,
 and takes `?span=quarter` and `?rtl=1`. `npm run demo-check`: seven presets
 clean, Project plan among them.
 
-Seen and left alone: in right-to-left the sticky label column is clipped at
-its right edge by about a scrollbar's width, titles and all. September's
-timeline at 0.3.5 does the same, so it is older than the plan; it is not
-fixed here.
+### The sticky start column, fixed before release (27 October 2026)
+
+Right to left, the label column was clipped at its right edge by about a
+scrollbar's width ("Event…", every title). Measured in the preview
+(`?rtl=1`), it was three faults, the first two as old as the timeline:
+
+- **The stable gutter.** `.CalendarView-timeline` has `scrollbar-gutter:
+  stable` with `overflow-y: hidden`. In RTL, Chrome would not scroll that box
+  back to its start: `scrollLeft` stopped at −15, the gutter's width, even
+  when set to 0, and the label sat 15px past the inner edge (1351 against
+  1336). With the gutter off it reached 0 and the label sat at 1336. RTL
+  drops the gutter; LTR keeps it.
+- **Physical `left: 0` on the sticky cells.** Scrolled to the end in RTL,
+  the label and corner left the box (1658–1838 against a box ending at
+  1336); the hour grid's corner, axis and *All day* label did the same.
+  All five rules are `inset-inline-start: 0` now.
+- **A grid only as wide as its box.** Both grids were `width: 100%` while
+  their day tracks overflowed it, and a sticky cell cannot travel past the
+  end of its own grid: scrolled further than the grid's width less the
+  label, the column scrolled away — in **left to right too**. A quarter's
+  December lost every label (scrolled 1,305px), so did a 373px month's last
+  week (581px, a 0.3.x case nobody had scrolled that far in). The hour grid
+  passed only because its scroll stayed under the limit. Each grid now has
+  an inline `min-width` of its columns' sum (label or axis plus N days at
+  their minimum).
+
+The label's padding became logical as well (8px at the start, 4px at the
+end, in either direction). Checked at both ends of the scroll, RTL and
+LTR, timeline month, quarter and 373px quarter, and the hour grid at
+373px: eight of eight hold. Left to right is unchanged: the quarter, its
+dark and 373px forms, November and September render pixel-identical to
+before. A smoke check pins the `min-width` (188); a mutant that drops it
+fails it.
+
+**Not on the form.** The test environment runs the 0.4.0 build from before
+this fix, and an import at a version already installed changes nothing, so
+the measurements above are the preview's, in Chrome. The next build on the
+form has to carry a higher number.
 
 ### The walkthrough — 0.4.0 on the form, 27 October 2026
 
