@@ -115,7 +115,7 @@ are required; every column bound to a role must be in the view, except
 | Start | `startField` | DateAndTime.DateOnly | DateAndTime.DateAndTime | **yes** | When the event starts, and the column a move writes. |
 | End | `endField` | DateAndTime.DateOnly | DateAndTime.DateAndTime | no | When it ends, so it spans its days. Shifted with the start. |
 | Title | `titleField` | SingleLine.Text | **yes** | The event's text. |
-| Colour | `colorField` | OptionSet | no | A choice column whose option colours colour the events; its label is a badge in the week view and on the timeline. |
+| Colour | `colorField` | OptionSet | no | A choice column whose option colours colour the events; its label is a badge in the week view and on a timeline that is not a tree. |
 | Parent | `parentField` | Lookup.Simple | no | A lookup to the same table: the task this one sits under on the timeline. Read only. |
 | Depends on | `dependsOnField` | Lookup.Simple | no | A lookup to the same table: the task this one waits for, drawn as a finish-to-start arrow. Read only. |
 

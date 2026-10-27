@@ -77,8 +77,14 @@
   Fluent button is 24px tall — and the chevron is an SVG that centres itself.
   A bare `‹` character sat on the baseline and read as a smaller, higher
   button than the one beside it.
+
+  Two classes deep, like every rule here that resizes a Fluent Button: one
+  class ties with Fluent's own atomic classes, and which wins is the order
+  the stylesheets land in. On the form this file came last; in the hub's
+  harness Fluent did, and a small button's 64px minimum took the arrows and
+  every row's ⋯ (measured 27 October 2026).
 */
-.CalendarView-navArrow {
+.CalendarView .CalendarView-navArrow {
     min-width: 32px;
     height: 24px;
     padding: 0;
@@ -106,7 +112,7 @@
 }
 
 /* The timeline's New button: icon then word, the icon the same 16px as the arrows. */
-.CalendarView-new {
+.CalendarView .CalendarView-new {
     gap: var(--spacingHorizontalXS, 4px);
 }
 
@@ -380,10 +386,19 @@ button.CalendarView-eventTitle:focus-visible {
 
 .CalendarView-eventMenu {
     flex: 0 0 auto;
+    opacity: 0;
+}
+
+/*
+  The size, two classes deep so Fluent's 64px minimum cannot win (see the
+  arrows above): at one class, a timeline label on a phone gave its ⋯ 64px
+  and "Wireframes" 19. The opacity stays one class deep, where the hover,
+  focus and touch rules below are written to override it.
+*/
+.CalendarView .CalendarView-eventMenu {
     min-width: 20px;
     height: 20px;
     padding: 0;
-    opacity: 0;
 }
 
 .CalendarView-event:hover .CalendarView-eventMenu,

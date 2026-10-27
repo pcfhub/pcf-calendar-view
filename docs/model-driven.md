@@ -202,5 +202,7 @@ Bind **Colour** to a choice column and each event takes the colour Dataverse
 assigned its option — as a bar on the leading edge, never a background, so an
 arbitrary colour cannot make the title unreadable. In the week view, and
 beside each title on the timeline, the option's label is also shown as a
-badge. Options with no colour, and choice
-values the option set does not carry, show the brand edge and the label.
+badge — except on a timeline whose rows are a tree (**Parent** bound), where
+the indent needs that room and the bar's edge carries the colour alone.
+Options with no colour, and choice values the option set does not carry,
+show the brand edge and the label.

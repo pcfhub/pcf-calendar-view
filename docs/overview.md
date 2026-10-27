@@ -32,7 +32,7 @@ dates is the one shape a grid cannot show: which days are full, which are
 empty, and what sits next to what. The built-in subgrid shows the rows; this
 control shows the *month*.
 
-Three things it does that a subgrid does not:
+What it does that a subgrid does not:
 
 - **Fetches the month, not the page.** The visible range goes to the server
   as a filter — start on or before the last day shown, end on or after the
@@ -83,8 +83,8 @@ are model-driven only, there is no metadata to read, and no form to open — see
 ## What it is not
 
 Not a scheduler. The hour grid draws a team's appointments against the clock,
-but there are no resource lanes, no availability and no conflict checking:
-two events at once are drawn side by side, and nothing stops a third. Nor is
+but there are no resource lanes, no availability and no double-booking
+check: two events at once are drawn side by side, and nothing stops a third. Nor is
 it a project planner: the timeline's Gantt is a light one — one predecessor,
 finish to start, and nothing rescheduled for you
 ([what it does not do](limitations.md#what-the-gantt-does-not-do)).

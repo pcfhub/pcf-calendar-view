@@ -2,6 +2,35 @@
 
 A Dataverse view as a month, week or timeline calendar, by a date column.
 
+## 0.4.1 — the ⋯ and the arrows at their own size on the hub (27 October 2026)
+
+Reviewing 0.4.0 on pcfhub.dev, the Project plan on the Phone device cut its
+titles to "Websi…", "Des…" and "W…". Measured on the live page and then in
+the hub's harness at 373px: every timeline label's ⋯ button was **64px**
+(`min-width: 64px`, Fluent's small Button), leaving "Wireframes" 19px of a
+140px column; the Previous and Next arrows were 64px too. This stylesheet's
+`.CalendarView-eventMenu { min-width: 20px }` and
+`.CalendarView-navArrow { min-width: 32px }` are one class, which ties with
+Fluent's atomic classes, so the winner is whichever stylesheet lands last —
+this one on the form (W7 measured the ⋯ at about 20px), Fluent in the hub.
+The hour grid's ⋯ already held, behind its three-class rule.
+
+The fix is specificity, not `!important`: the sizes sit under
+`.CalendarView .CalendarView-eventMenu`, `.CalendarView .CalendarView-navArrow`
+and `.CalendarView .CalendarView-new`. The ⋯'s opacity stays one class deep,
+because the hover, focus and touch rules that reveal it are one class deep
+too. In the harness afterwards: ⋯ 20px, arrows 32px, and the four titles
+91, 77, 63 and 77px — what the form showed. The hour grid's ⋯ went from 28px
+to 18px, its rule's own minimum, which its padding had been overriding on the
+hub alone. The preview (stub Fluent) renders pixel-identical, so the
+published screenshot stands. Smoke 188, clicks 18/18, demo-check 7/7 at the
+default width and at 373px.
+
+Three doc sentences fixed with it: the overview's "Three things" list has
+six; its "no conflict checking" is "no double-booking check" now that the
+Gantt marks conflicts; and the option badge is not shown on a timeline that
+is a tree (`model-driven.md`, README).
+
 ## 0.4.0 — a light Gantt on the timeline (probe 0.3.5, 27 October 2026)
 
 Picked by the twenty-eighth demand run: Gantt is the largest request the
