@@ -18,6 +18,8 @@
  * `getDate()` on anything.
  */
 
+import { buildForest, descendantsOf, treeRows } from '../lib/tree-rows/rows';
+
 /** The manifest's role names. `column.alias` carries these; `column.name` carries the maker's schema name. */
 export const ROLES = {
     start: 'startField',
@@ -624,91 +626,21 @@ export interface PlanRow {
  * `collapsed` holds the keys of rows whose children are hidden. With no
  * event carrying a parent, the rows are `events` in their order, every one
  * at level 1 — the timeline before 0.4.0.
+ *
+ * The tree itself — headers, loops, collapse — is the template's
+ * `lib/tree-rows` since 0.4.2, lifted from this function; what stays here is
+ * the plan's own part, a header row's bracket over its tasks' dates.
  */
 export function planRows(events: CalendarEvent[], collapsed: ReadonlySet<string> = new Set()): PlanRow[] {
-    const ids = events.map((event) => bareId(event.id));
-    const index = new Map(ids.map((id, at) => [id, at] as [string, number]));
-    const parentOf = new Map<string, string>();
+    const forest = buildForest<CalendarEvent, Reference>(events, (event) => bareId(event.id), (event) => event.parent);
 
-    events.forEach((event, at) => {
-        const parent = event.parent?.id;
-
-        if (parent && parent !== ids[at] && index.has(parent)) {
-            parentOf.set(ids[at], parent);
-        }
-    });
-
-    for (const id of ids) {
-        const seen = new Set<string>([id]);
-        let at = parentOf.get(id);
-
-        while (at !== undefined && !seen.has(at)) {
-            seen.add(at);
-            at = parentOf.get(at);
-        }
-
-        if (at !== undefined) {
-            const loop: string[] = [];
-            let member = at;
-
-            do {
-                loop.push(member);
-                member = parentOf.get(member) as string;
-            } while (member !== at);
-
-            loop.sort((a, b) => (index.get(a) as number) - (index.get(b) as number));
-            parentOf.delete(loop[0]);
-        }
-    }
-
-    const children = new Map<string, string[]>();
-    const headers = new Map<string, Reference>();
-    const roots: string[] = [];
-    const under = (key: string, id: string): void => {
-        children.set(key, [...(children.get(key) ?? []), id]);
-    };
-
-    events.forEach((event, at) => {
-        const id = ids[at];
-        const loaded = parentOf.get(id);
-
-        if (loaded !== undefined) {
-            under(loaded, id);
-
-            return;
-        }
-
-        const parent = event.parent && event.parent.id !== id && !index.has(event.parent.id) ? event.parent : null;
-
-        if (!parent) {
-            roots.push(id);
-
-            return;
-        }
-
-        const key = `header:${parent.id}`;
-
-        if (!headers.has(key)) {
-            headers.set(key, parent);
-            roots.push(key);
-        }
-
-        under(key, id);
-    });
-
-    const descendants = (key: string): CalendarEvent[] =>
-        (children.get(key) ?? []).flatMap((id) => [events[index.get(id) as number], ...descendants(id)]);
-
-    const rows: PlanRow[] = [];
-    const emit = (key: string, level: number): void => {
-        const kids = children.get(key) ?? [];
-        const header = headers.get(key) ?? null;
-        const expanded = kids.length > 0 && !collapsed.has(key);
+    return treeRows(forest, collapsed).map((row) => {
         let start: Wall | null = null;
         let end: Wall | null = null;
 
-        if (header) {
-            for (const event of descendants(key)) {
+        if (row.header) {
+            for (const at of descendantsOf(forest, row.key)) {
+                const event = events[at];
                 const last = event.end ?? event.start;
 
                 start = !start || compareWall(event.start, start) < 0 ? event.start : start;
@@ -716,20 +648,17 @@ export function planRows(events: CalendarEvent[], collapsed: ReadonlySet<string>
             }
         }
 
-        rows.push({ key, event: header ? null : events[index.get(key) as number], header, level, hasChildren: kids.length > 0, expanded, start, end });
-
-        if (expanded) {
-            for (const kid of kids) {
-                emit(kid, level + 1);
-            }
-        }
-    };
-
-    for (const key of roots) {
-        emit(key, 1);
-    }
-
-    return rows;
+        return {
+            key: row.key,
+            event: row.index === null ? null : events[row.index],
+            header: row.header,
+            level: row.level,
+            hasChildren: row.hasChildren,
+            expanded: row.expanded,
+            start,
+            end,
+        };
+    });
 }
 
 /**
